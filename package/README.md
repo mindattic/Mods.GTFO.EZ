@@ -536,6 +536,14 @@ others' prior work:
 
 ## Changelog
 
+### v17
+
+- `GTFO.EZ.Shared` submodule bump: `SharedOwner.Order` no longer lists `GTFO.CrashTestDummies`,
+  which dropped Insert/Delete (and this submodule) in its own v17. No change in this mod's own
+  behavior.
+- `GTFO.CrashTestDummies` and `GTFO.SkipDrop` join the `vN` scheme this release, so every GTFO.* mod
+  now shares one version number.
+
 ### v16
 
 - **Insert and Delete swapped: Insert is now infinite health, Delete is now infinite ammo.** Both

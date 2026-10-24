@@ -6,7 +6,7 @@ who want to go deeper.
 
 ![Language](https://img.shields.io/badge/language-C%23%20(.NET%206)-blue)
 ![Platform](https://img.shields.io/badge/platform-BepInEx%20IL2CPP-informational)
-![Status](https://img.shields.io/badge/status-active%20(v16)-success)
+![Status](https://img.shields.io/badge/status-active%20(v17)-success)
 
 Try it: install from [Thunderstore](https://thunderstore.io/c/gtfo/p/MindAttic/GtfoEZ/) (listed
 there as `GtfoEZ`, since package names can't contain a period).
@@ -230,8 +230,8 @@ form; the manifest keeps the `N.0.0` form Thunderstore requires.
 The GTFO.EZ family - GTFO.EZ, GTFO.EZ.AbsurdWeapons, GTFO.EZ.AbsurdMoves and GTFO.EZ.AbsurdItems -
 shares one version number, so a matching set is easy to spot: they were aligned at **v13** (the
 companions were v1 before, and GTFO.EZ's in-development v14 was folded into v13), and every release of
-the family bumps all four together. GTFO.CrashTestDummies and GTFO.SkipDrop keep their own
-numbering. Current release: v16.
+the family bumps all four together. GTFO.CrashTestDummies and GTFO.SkipDrop joined the same `vN`
+scheme at v17. Current release: v17.
 
 ## Sharing with friends
 
