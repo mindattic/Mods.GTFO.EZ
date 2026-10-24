@@ -6,7 +6,7 @@ who want to go deeper.
 
 ![Language](https://img.shields.io/badge/language-C%23%20(.NET%206)-blue)
 ![Platform](https://img.shields.io/badge/platform-BepInEx%20IL2CPP-informational)
-![Status](https://img.shields.io/badge/status-active%20(v15)-success)
+![Status](https://img.shields.io/badge/status-active%20(v16)-success)
 
 Try it: install from [Thunderstore](https://thunderstore.io/c/gtfo/p/MindAttic/GtfoEZ/) (listed
 there as `GtfoEZ`, since package names can't contain a period).
@@ -49,9 +49,10 @@ vanilla-vs-default table):
 - On first launch only, switches on four of the game's own control options (toggle comms menu,
   toggle sprint, toggle aim, stand on jump) - a one-time nudge, not an enforced setting.
 - **Insert** toggles infinite health and **Delete** infinite ammo (your own player only), each
-  announced in the event log and always in the console too; both start off. Every GTFO.* mod has
-  these two keys, from one shared copy of the code (see Shared code below), and with several
-  installed only one of them answers the keys, so a press never toggles twice.
+  announced in the event log and always in the console too; both start off. GTFO.EZ, its Absurd
+  companions and GTFO.CrashTestDummies all have these two keys, from one shared copy of the code
+  (see Shared code below), and with several installed only one of them answers the keys, so a press
+  never toggles twice.
 - A load confirmation: under the rundown title on the rundown-select screen, one "<mod> vN Active"
   line per GTFO.* mod that's installed and switched on, and the same list as a warden-intel message
   in-level once you spawn.
@@ -139,7 +140,7 @@ colliders), the experimental bot tool controls
 All tweaks are multipliers or toggles, tunable after first launch in
 `BepInEx/config/MindAttic.GTFO.EZ.cfg` - no rebuild needed to retune a value. The first entry,
 `[0. Mod] Enabled`, is the master switch: `false` and the mod returns from `Load` before binding or
-patching anything else (the other GTFO.* mods then treat it as not installed). Config sections
+patching anything else (the other mods sharing its code then treat it as not installed). Config sections
 mirror the feature groups above: Health, Stamina, Fall Damage, Ammo, Lighting, Enemy Detection,
 Movement, Combat, Utility, Environment, Enemy Balance, Loot, Interactions, Controls,
 Bots, Expedition Resources/Enemies/Level Gen/Doors, one section per melee weapon and per weapon
@@ -181,7 +182,7 @@ package/              exactly what ships to Thunderstore / gets zipped for shari
 reference/            (gitignored) local-only: EasyMode's files, vanilla data dumps, notes
 build.ps1             builds the plugin and packages dist/GTFO.EZ-<version>.zip
 external/
-  GTFO.EZ.Shared/     git submodule: the code every GTFO.* mod compiles in (see Shared code)
+  GTFO.EZ.Shared/     git submodule: the shared code this mod and some companions compile in (see Shared code)
 ```
 
 ## Shared code
@@ -190,7 +191,7 @@ GTFO.EZ is the core of the GTFO.EZ family: GTFO.EZ.AbsurdWeapons, GTFO.EZ.Absurd
 GTFO.EZ.AbsurdItems are companion mods built on it (each compiles in the code below; each works
 on its own too), and GTFO.CrashTestDummies compiles in the same shared code.
 
-The code shared by every GTFO.* mod lives in its own repo,
+The code shared by GTFO.EZ, its Absurd companions and GTFO.CrashTestDummies lives in its own repo,
 [GTFO.EZ.Shared](https://github.com/mindattic/GTFO.EZ.Shared). Each mod has it as a git submodule
 at `external/GTFO.EZ.Shared` and compiles the files it uses straight into its own DLL (linked
 `<Compile>` items in its `.csproj`, shown under `Shared\` in the IDE), so players install nothing
@@ -206,7 +207,7 @@ extra. Clone with `--recurse-submodules`, or run `git submodule update --init` i
 - `InfiniteToggles.cs` - Insert / Delete, infinite health and ammo, announced in the event log and
   always in the console too.
 - `MessageHelper.cs` - on-screen messages for the local player, wherever they fit:
-  `MessageHelper.Show(text, MessageType.Warden | EventLog | Center | Subtitle, seconds)`. Compiled by every GTFO.* mod.
+  `MessageHelper.Show(text, MessageType.Warden | EventLog | Center | Subtitle, seconds)`. Compiled by GTFO.EZ, its Absurd companions and GTFO.CrashTestDummies.
 - `KitLoot.cs` - kits as consumables. Compiled by GTFO.EZ.AbsurdItems only (its *Consumables Are
   Kits*, with Loot Mix's Hand Grenades and Stim Packs as extras). GTFO.EZ doesn't use it, so
   `GTFO.EZ.csproj` leaves it out of this mod's build.
@@ -230,7 +231,7 @@ The GTFO.EZ family - GTFO.EZ, GTFO.EZ.AbsurdWeapons, GTFO.EZ.AbsurdMoves and GTF
 shares one version number, so a matching set is easy to spot: they were aligned at **v13** (the
 companions were v1 before, and GTFO.EZ's in-development v14 was folded into v13), and every release of
 the family bumps all four together. GTFO.CrashTestDummies and GTFO.SkipDrop keep their own
-numbering. Current release: v15.
+numbering. Current release: v16.
 
 ## Sharing with friends
 
@@ -275,9 +276,9 @@ project's design and defaults are built on.
 Part of [MindAttic](https://mindattic.com) - see more projects at
 [github.com/mindattic](https://github.com/mindattic). Other GTFO mods from the same team:
 [GTFO.EZ.AbsurdWeapons](https://github.com/mindattic/GTFO.EZ.AbsurdWeapons) (new weapons, with its
-own Home toggle to carry them on a serious run),
+own End toggle to carry them on a serious run),
 [GTFO.EZ.AbsurdMoves](https://github.com/mindattic/GTFO.EZ.AbsurdMoves) (new movement abilities,
-gated behind its own End toggle),
+gated behind its own Home toggle),
 [GTFO.EZ.AbsurdItems](https://github.com/mindattic/GTFO.EZ.AbsurdItems) (artifact buffs and glow,
 the Hand Grenade and Stim Pack, consumables as kits, and breadcrumb markers),
 [GTFO.CrashTestDummies](https://github.com/mindattic/GTFO.CrashTestDummies), and

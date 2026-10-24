@@ -1,5 +1,13 @@
 # Changelog
 
+## v16
+
+- **Insert and Delete swapped: Insert is now infinite health, Delete is now infinite ammo.** Both
+  also always announce in the console now, not just the event log. Shared code
+  (`GTFO.EZ.Shared`), so GTFO.EZ, its Absurd companions and GTFO.CrashTestDummies all pick it up.
+- Moves in step with the GTFO.EZ family's version number (GTFO.EZ, GTFO.EZ.AbsurdWeapons,
+  GTFO.EZ.AbsurdMoves and GTFO.EZ.AbsurdItems share one).
+
 ## v15
 
 - **Added `[Stamina] Stamina Multiplier`** (default 1.0, vanilla): divides every stamina action cost
@@ -7,9 +15,6 @@
   factor. Moved over from GTFO.EZ.AbsurdMoves' Run Speed/Stamina feature, so it works even without
   that mod installed; AbsurdMoves' own copy of it is gone (its Run Speed half only ever stacked a
   second multiplier on top of this mod's own `[Movement] Run Speed Multiplier`, which already covered it).
-- **Insert and Delete swapped: Insert is now infinite health, Delete is now infinite ammo.** Both
-  also always announce in the console now, not just the event log. Shared code
-  (`GTFO.EZ.Shared`), so every GTFO.* mod picks it up.
 - Moves in step with the GTFO.EZ family's version number (GTFO.EZ, GTFO.EZ.AbsurdWeapons,
   GTFO.EZ.AbsurdMoves and GTFO.EZ.AbsurdItems share one).
 

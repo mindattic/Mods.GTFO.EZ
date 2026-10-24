@@ -15,7 +15,7 @@ public class Plugin : BasePlugin
 {
     public const string GUID = "MindAttic.GTFO.EZ";
     public const string NAME = "GTFO.EZ";
-    public const string VERSION = "15.0.0";
+    public const string VERSION = "16.0.0";
 
     private static readonly string[] FamilyGuids =
     {
