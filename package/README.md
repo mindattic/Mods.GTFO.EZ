@@ -529,6 +529,11 @@ others' prior work:
 
 ### v14
 
+- **Added `[Stamina] Stamina Multiplier`** (default 1.0, vanilla): divides every stamina action cost
+  (sprinting, jumping, walking, crouching, strafing) by it and multiplies stamina regen by the same
+  factor. Moved over from GTFO.EZ.AbsurdMoves' Run Speed/Stamina feature, so it works even without
+  that mod installed; AbsurdMoves' own copy of it is gone (its Run Speed half only ever stacked a
+  second multiplier on top of this mod's own `[Movement] Run Speed Multiplier`, which already covered it).
 - **Load confirmation** now lists every GTFO.* mod that's installed and switched on - one
   "&lt;mod&gt; vN Active" line each (GTFO.EZ, its Absurd add-ons, CrashTestDummies, SkipDrop) - under
   the rundown title and in the in-level warden-intel message.

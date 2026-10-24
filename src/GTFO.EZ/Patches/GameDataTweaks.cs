@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using GameData;
 using GTFO.EZ.Core;
 using HarmonyLib;
+using Player;
 using UnityEngine;
 
 namespace GTFO.EZ.Patches;
@@ -80,6 +81,24 @@ internal static class GameDataInit_Initialize_Patch
             player.StaminaRegenNotRestingInCombat = player.StaminaRegenNotRestingOutOfCombat;
             player.StaminaRegenRestingInCombat = player.StaminaRegenRestingOutOfCombat;
             player.StaminaMaximumCapWhenInCombat = 1f;
+        }
+
+        // Stamina in GTFO is a 0-1 meter with no maximum to raise, so "more stamina" divides what
+        // every action costs and speeds regen up by the same factor (moved over from
+        // GTFO.EZ.AbsurdMoves' Run Speed/Stamina feature, G.EZ-T97).
+        var staminaMult = Plugin.StaminaMultiplier.Value;
+        if (staminaMult > 0f)
+        {
+            player.StaminaJumpCost = Cheaper(player.StaminaJumpCost, staminaMult);
+            player.StaminaSneakCost = Cheaper(player.StaminaSneakCost, staminaMult);
+            player.StaminaWalkCost = Cheaper(player.StaminaWalkCost, staminaMult);
+            player.StaminaRunCost = Cheaper(player.StaminaRunCost, staminaMult);
+            player.StaminaCrouchEnterCost = Cheaper(player.StaminaCrouchEnterCost, staminaMult);
+            player.StaminaQuickStrafeCost = Cheaper(player.StaminaQuickStrafeCost, staminaMult);
+            player.StaminaRegenRestingInCombat *= staminaMult;
+            player.StaminaRegenNotRestingInCombat *= staminaMult;
+            player.StaminaRegenRestingOutOfCombat *= staminaMult;
+            player.StaminaRegenNotRestingOutOfCombat *= staminaMult;
         }
 
         var fallDamageMult = Plugin.FallDamageMultiplier.Value;
@@ -438,6 +457,13 @@ internal static class GameDataInit_Initialize_Patch
         var typeMult = Plugin.WeaponTypeMultipliers.TryGetValue($"{category}.{fieldKey}", out var t) ? t.Value : 1f;
         var individualMult = Plugin.WeaponIndividualMultipliers.TryGetValue($"{archetypeId}.{fieldKey}", out var i) ? i.Value : 1f;
         return typeMult * individualMult;
+    }
+
+    private static PlayerStamina.ActionCost Cheaper(PlayerStamina.ActionCost cost, float mult)
+    {
+        cost.baseStaminaCostInCombat /= mult;
+        cost.baseStaminaCostOutOfCombat /= mult;
+        return cost;
     }
 
     // More of this stat helps the player, so a fractional result rounds up.

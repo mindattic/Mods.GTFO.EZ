@@ -29,8 +29,9 @@ there as `GtfoEZ`, since package names can't contain a period).
 **Core tuning** (community-consensus defaults; see `package/README.md` for the full
 vanilla-vs-default table):
 
-- Health, regen rate and regen cap, stamina (removes the in-combat penalty), fall damage amount
-  and max-damage height, weapon/tool ammo, and enemy movement-detection range.
+- Health, regen rate and regen cap, stamina (removes the in-combat penalty, plus a `Stamina
+  Multiplier` that goes further still), fall damage amount and max-damage height, weapon/tool ammo,
+  and enemy movement-detection range.
 - Consumable loot: glow sticks, lock melters, C-foam, trip mines and fog repellers are disabled by
   default, so their share goes to the rest. Consumables as kits moved to
   [GTFO.EZ.AbsurdItems](https://github.com/mindattic/GTFO.EZ.AbsurdItems): with its *Consumables Are

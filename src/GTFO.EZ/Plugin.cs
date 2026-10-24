@@ -56,6 +56,7 @@ public class Plugin : BasePlugin
     internal static ConfigEntry<float> HealthRegenRateMultiplier = null!;
     internal static ConfigEntry<float> HealthRegenCapMultiplier = null!;
     internal static ConfigEntry<bool> RemoveCombatStaminaPenalty = null!;
+    internal static ConfigEntry<float> StaminaMultiplier = null!;
     internal static ConfigEntry<float> FallDamageMultiplier = null!;
     internal static ConfigEntry<float> FallDamageMinHeightMultiplier = null!;
     internal static ConfigEntry<float> FallDamageMaxHeightMultiplier = null!;
@@ -304,6 +305,12 @@ public class Plugin : BasePlugin
 
         RemoveCombatStaminaPenalty = Config.Bind("Stamina", "Remove Combat Stamina Penalty", true,
             "Makes stamina regen while in combat as fast as out of combat, and removes the 90% stamina cap while in combat.");
+
+        StaminaMultiplier = BindNonNegative("Stamina", "Stamina Multiplier", 1.0f,
+            "How much further stamina goes: every action's stamina cost (sprinting, jumping, walking, crouching, strafing) " +
+            "is divided by this and stamina regen is multiplied by it. 1.5 = half as much again. Left at vanilla (1.0) by " +
+            "default - moved over from GTFO.EZ.AbsurdMoves' Run Speed/Stamina feature (G.EZ-T97) so it works even without " +
+            "AbsurdMoves installed.");
 
         FallDamageMultiplier = BindNonNegative("Fall Damage", "Fall Damage Multiplier", 0.1f,
             "Multiplies fall damage dealt once you're past the no-damage height. Default 0.1 (10% of normal) on top of the height change below.");
