@@ -70,15 +70,16 @@ its own, each with its own config section and on/off switch:
 |---|---|
 | E (aiming your sentry) | Place your own sentry - instant, then back to your previous weapon |
 | Shift+E (aiming your sentry) | Place the next bot's tool at your aim instead (host only) |
-| Insert | Infinite ammo on/off |
-| Delete | Infinite health on/off |
+| Insert | Infinite health on/off |
+| Delete | Infinite ammo on/off |
 | Z | Recall every bot-placed tool at once (host only) |
 | X | Place your own sentry without pulling it out |
 
-**Infinite ammo and health** — **Insert** toggles infinite ammo (every gun and tool stays full,
-no reloads) and **Delete** toggles infinite health (no damage to you; bots and teammates are
-unaffected), each announced in the event log. Both start off. Every GTFO.* mod has the same two
-keys; with several installed, only one answers, so a press never toggles twice.
+**Infinite ammo and health** — **Insert** toggles infinite health (no damage to you; bots and
+teammates are unaffected) and **Delete** toggles infinite ammo (every gun and tool stays full,
+no reloads), each announced in the event log and always in the console too. Both start off. Every
+GTFO.* mod has the same two keys; with several installed, only one answers, so a press never
+toggles twice.
 
 **How you know it's loaded** — under the rundown title on the rundown-select screen, one
 "&lt;mod&gt; vN Active" line appears for each GTFO.* mod (GTFO.EZ, its Absurd add-ons,
@@ -101,6 +102,12 @@ These are tunable in the same config file, but ship unchanged — either because
 already fine (flashlights), or because there's no community consensus they need adjusting for an
 easier game, unlike the stats above. Grouped here the same way they're grouped in the config file
 itself:
+
+**Stamina**
+
+| Stat | Vanilla | Default |
+|---|---|---|
+| Stamina Multiplier (divides every action's stamina cost - sprinting, jumping, walking, crouching, strafing - and multiplies regen by the same factor) | x1 | - |
 
 **Fall Damage**
 
@@ -482,7 +489,9 @@ without GTFO.EZ installed, too.
 - **Turning a mod off:** every GTFO.* mod's `.cfg` starts with `[0. Mod] Enabled`; set it to
   `false` and that mod loads nothing, and the others treat it as not installed.
 - **GTFO.EZ.AbsurdMoves:** compatible - the dash that used to be in this mod lives there now, as its
-  Dodge (hold Shift, double-tap W/A/S/D). Install it if you want the dash back.
+  Dodge (hold Shift, double-tap W/A/S/D). Install it if you want the dash back. Its own Run Speed and
+  Stamina settings are gone the other way: this mod's `[Movement] Run Speed Multiplier` and `[Stamina]
+  Stamina Multiplier` now cover both, with or without AbsurdMoves installed.
 - **GTFO.CrashTestDummies** and **GTFO.SkipDrop:** compatible - they patch level building and the
   elevator drop, nothing this mod touches.
 
@@ -534,6 +543,9 @@ others' prior work:
   factor. Moved over from GTFO.EZ.AbsurdMoves' Run Speed/Stamina feature, so it works even without
   that mod installed; AbsurdMoves' own copy of it is gone (its Run Speed half only ever stacked a
   second multiplier on top of this mod's own `[Movement] Run Speed Multiplier`, which already covered it).
+- **Insert and Delete swapped: Insert is now infinite health, Delete is now infinite ammo.** Both
+  also always announce in the console now, not just the event log. Shared code
+  (`GTFO.EZ.Shared`), so every GTFO.* mod picks it up.
 - Moves in step with the GTFO.EZ family's version number (GTFO.EZ, GTFO.EZ.AbsurdWeapons,
   GTFO.EZ.AbsurdMoves and GTFO.EZ.AbsurdItems share one).
 

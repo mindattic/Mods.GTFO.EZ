@@ -48,10 +48,10 @@ vanilla-vs-default table):
   basic Sentry Gun.
 - On first launch only, switches on four of the game's own control options (toggle comms menu,
   toggle sprint, toggle aim, stand on jump) - a one-time nudge, not an enforced setting.
-- **Insert** toggles infinite ammo and **Delete** infinite health (your own player only), each
-  announced in the event log; both start off. Every GTFO.* mod has these two keys, from one
-  shared copy of the code (see Shared code below), and with several installed only one of them
-  answers the keys, so a press never toggles twice.
+- **Insert** toggles infinite health and **Delete** infinite ammo (your own player only), each
+  announced in the event log and always in the console too; both start off. Every GTFO.* mod has
+  these two keys, from one shared copy of the code (see Shared code below), and with several
+  installed only one of them answers the keys, so a press never toggles twice.
 - A load confirmation: under the rundown title on the rundown-select screen, one "<mod> vN Active"
   line per GTFO.* mod that's installed and switched on, and the same list as a warden-intel message
   in-level once you spawn.
@@ -78,8 +78,8 @@ weapon, and every ranged weapon archetype plus sentries - all left at vanilla by
 |---|---|
 | E (aiming your sentry) | Place your own sentry - instant, then back to your previous weapon |
 | Shift+E (aiming your sentry) | Place the next bot's tool at your aim instead (host only) |
-| Insert | Infinite ammo on/off |
-| Delete | Infinite health on/off |
+| Insert | Infinite health on/off |
+| Delete | Infinite ammo on/off |
 | Z | Recall every bot-placed tool at once (host only) |
 | X | Place your own sentry without pulling it out (at your aim if holding it, else just ahead of you) |
 
@@ -203,7 +203,8 @@ extra. Clone with `--recurse-submodules`, or run `git submodule update --init` i
   switch (`[0. Mod] Enabled`) is off counts as not installed. `SharedOwner.IsActive(guid)` and
   `SharedOwner.TryGetSetting<T>(guid, section, key, out entry)` are how one mod checks another
   (installed, loaded and switched on) and reads its settings.
-- `InfiniteToggles.cs` - Insert / Delete, infinite ammo and health, announced in the event log.
+- `InfiniteToggles.cs` - Insert / Delete, infinite health and ammo, announced in the event log and
+  always in the console too.
 - `MessageHelper.cs` - on-screen messages for the local player, wherever they fit:
   `MessageHelper.Show(text, MessageType.Warden | EventLog | Center | Subtitle, seconds)`. Compiled by every GTFO.* mod.
 - `KitLoot.cs` - kits as consumables. Compiled by GTFO.EZ.AbsurdItems only (its *Consumables Are
@@ -273,9 +274,11 @@ project's design and defaults are built on.
 
 Part of [MindAttic](https://mindattic.com) - see more projects at
 [github.com/mindattic](https://github.com/mindattic). Other GTFO mods from the same team:
-[GTFO.EZ.AbsurdWeapons](https://github.com/mindattic/GTFO.EZ.AbsurdWeapons),
-[GTFO.EZ.AbsurdMoves](https://github.com/mindattic/GTFO.EZ.AbsurdMoves) (which now has the dash, as its Dodge),
-[GTFO.EZ.AbsurdItems](https://github.com/mindattic/GTFO.EZ.AbsurdItems) (which now has artifact buffs and
-consumables as kits),
+[GTFO.EZ.AbsurdWeapons](https://github.com/mindattic/GTFO.EZ.AbsurdWeapons) (new weapons, with its
+own Home toggle to carry them on a serious run),
+[GTFO.EZ.AbsurdMoves](https://github.com/mindattic/GTFO.EZ.AbsurdMoves) (new movement abilities,
+gated behind its own End toggle),
+[GTFO.EZ.AbsurdItems](https://github.com/mindattic/GTFO.EZ.AbsurdItems) (artifact buffs and glow,
+the Hand Grenade and Stim Pack, consumables as kits, and breadcrumb markers),
 [GTFO.CrashTestDummies](https://github.com/mindattic/GTFO.CrashTestDummies), and
 [GTFO.SkipDrop](https://github.com/mindattic/GTFO.SkipDrop).
