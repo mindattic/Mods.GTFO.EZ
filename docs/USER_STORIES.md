@@ -118,3 +118,4 @@ _Nothing recorded yet._ (G.EZ-T5 closed — see Tickets below.)
 | G.EZ-T95 | 2026-10-21 | docs | closed | Update USER_STORIES.md | — |
 | G.EZ-T96 | 2026-10-22 | docs | closed | Update USER_STORIES.md | — |
 | G.EZ-T97 | 2026-10-24 | feature | closed | Add a Stamina Multiplier setting ([Stamina] section): divides every stamina action cost and multiplies regen, moved over from GTFO.EZ.AbsurdMoves' Run Speed/Stamina feature so it works even without AbsurdMoves installed | GameDataTweaks.cs |
+| G.EZ-T98 | 2026-10-24 | chore | closed | Cut the v15 release: bump VERSION/manifest, move the Stamina Multiplier changelog entry from the already-shipped v14 into a new v15 section, rebuild and repackage dist/ | package/manifest.json |
