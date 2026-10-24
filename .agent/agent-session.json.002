@@ -1,0 +1,12 @@
+﻿{
+    "protocolVersion":  "1.1",
+    "updatedAt":  "2026-10-18T20:10:35.9026129Z",
+    "task":  "GTFO.EZ: verify in-game (DEV profile, hosting with bots) that the bot-filter fix G.EZ-T52 works - one Shift+E deploys exactly one bot\u0027s tool, Z/X act once, Fog Clearing ramps over the full 90 s, and a bot set up mid-level no longer resets fog/ping/artifact buffs. Then upload v14 to Thunderstore if the user wants.",
+    "decisions":  "Dash removed from GTFO.EZ and lives in GTFO.AbsurdMoves as Dodge (0.5 s double-tap window) - do not re-add it here. Every Dam_PlayerDamageLocal Update/Setup hook in GTFO.EZ must go through LocalPlayerDamage.IsMine(__instance) (src/GTFO.EZ/Patches/LocalPlayerDamage.cs) because host bots run those hooks too. One ticket per commit; docs commits separate from code. \"Deploy to DEV\" = .\\build.ps1 + delete DEV profile BepInEx/config/MindAttic.GTFO.EZ.cfg. Manifest description must stay \u003c=250 chars (currently 210). Beam guns not firing while sprinting is a GTFO.AbsurdWeapons fix (LaserGuns.cs:407, ChainLightning.cs:327, ShrinkBeam.cs:484 should read AbsurdMoves\u0027 [Fire On The Move] Fire While Running Enabled) - not this repo\u0027s job.",
+    "state":  "All pushed to main, tree clean (only .prose files untracked). Commits: ddd32f6 dash removed (G.EZ-T50), 913801d manifest+READMEs describe every feature (G.EZ-T51), 7fe6fa7 damage-component hooks filtered to local player (DeployPickupHotkeys, FogClearPulse, TerminalPingPatch, ArtifactBuffs; G.EZ-T52), 9bdb2d1 ticket log. T50/T51/T52 closed. dist/GTFO.EZ-14.0.0.zip built before T52 - rebuild needed for the zip to include the bot fix. DEV profile has the T52 DLL and its cfg was wiped. Build 0 errors, 29/29 tests pass. Nothing confirmed in play yet.",
+    "next":  "1. Run .\\build.ps1 to refresh dist/GTFO.EZ-14.0.0.zip with the T52 fix (and delete the DEV cfg again). 2. User tests in-game as host with bots: Shift+E/Z/X once each, fog ramp timing, artifact buffs survive a bot joining. 3. If good, update README Limitations (bot tool controls / fog / artifact buffs confirmed) under a docs ticket. 4. Upload the v14 zip to Thunderstore when the user says.",
+    "queued":  [
+
+               ],
+    "universe":  ""
+}
