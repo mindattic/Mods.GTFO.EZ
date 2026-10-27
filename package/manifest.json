@@ -1,6 +1,6 @@
 {
   "name": "GtfoEZ",
-  "version_number": "17.0.0",
+  "version_number": "18.0.0",
   "website_url": "https://github.com/mindattic/GTFO.EZ",
   "description": "2x HP & regen cap, no combat stamina penalty, -90% fall dmg, +50% ammo, 3x faster revives, short detection, no fog, fog clearing, instant sentries, bot sentry keys, ping any terminal, Ins/Del infinite ammo/HP. 530+ tunables.",
   "dependencies": [
