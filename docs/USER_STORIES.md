@@ -123,3 +123,4 @@ _Nothing recorded yet._ (G.EZ-T5 closed — see Tickets below.)
 | G.EZ-T100 | 2026-10-24 | chore | closed | Cut the v16 release: pull in GTFO.EZ.Shared's Insert/Delete swap and always-console-log fix (submodule bump), fix GTFO.* wording to name GTFO.CrashTestDummies where it actually shares code, rebuild and repackage dist/ | package/manifest.json |
 | G.EZ-T101 | 2026-10-24 | chore | closed | Cut the v17 release: bump submodule to GTFO.EZ.Shared's Order cleanup, join CrashTestDummies/SkipDrop into the vN scheme, bump VERSION/manifest, rebuild and repackage dist/ | package/manifest.json |
 | G.EZ-T102 | 2026-10-26 | chore | closed | Cut the v18 release: moves in step with the GTFO.* family's version number, bump VERSION/manifest, rebuild and repackage dist/ | package/CHANGELOG.md |
+| G.EZ-T103 | 2026-10-30 | fix | open | build.ps1 leaves stale package/*.dll on disk, so a removed dependency ships into dist/ zip | — |

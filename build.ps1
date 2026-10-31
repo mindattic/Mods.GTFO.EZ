@@ -24,6 +24,8 @@ $pluginDir = Join-Path $bepInEx "plugins\$displayName"
 $builtDll = Join-Path $pluginDir "$displayName.dll"
 if (-not (Test-Path $builtDll)) { throw "Could not find built DLL at $builtDll. Check -Profile matches your mod manager profile." }
 
+Get-ChildItem "$root\package" -Filter "*.dll" -ErrorAction SilentlyContinue | Remove-Item -Force
+
 Copy-Item $builtDll "$root\package\$displayName.dll" -Force
 
 # GTFO.EZ.Core.dll (pure balance data/math, see src/GTFO.EZ.Core) is a real runtime dependency of
