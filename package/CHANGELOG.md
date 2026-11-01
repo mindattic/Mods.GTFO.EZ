@@ -2,6 +2,13 @@
 
 ## v19
 
+- **X redesigned into a quick-drop-all key:** each press now drops the next turret at wherever
+  you're currently standing and looking (no aiming needed) - every bot that still has an undeployed
+  one, one per press, then finally your own - so a few presses deploy the whole team's turrets.
+  Shift+E and E are unchanged (aim-based, for precise placement).
+- **Z now also recalls your own placed sentry**, not just bots': it calls the same real pickup the
+  vanilla walk-up-and-interact flow ends in, directly, so it works instantly from anywhere for the
+  host and every client.
 - Verified the bot tool controls against the game's turret-handling code: Shift+E only ever picks
   a bot actually carrying a Sentry Gun (mine deployer/C-foam/bio tracker bots are skipped), and Z
   correctly matches every currently placed sentry back to the bot whose backpack owns it and

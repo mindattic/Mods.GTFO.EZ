@@ -58,10 +58,12 @@ its own, each with its own config section and on/off switch:
 **Experimental** (`Experimental`, on by default):
 
 - **Bot tool controls**: aim your own sentry's placement ghost and press **Shift+E** to drop the
-  next bot's equipped tool there instead of yours; **Z** recalls every bot-placed tool back into
-  its bot; **X** places your own sentry without pulling it out (at your aim if you're holding it,
-  otherwise just ahead of you). One switch turns all three off. Shift+E and Z only work for the
-  host (bots belong to the host); on a client, Shift+E does nothing and never places your own sentry.
+  next bot's equipped tool there instead of yours; **X** drops the next turret wherever you're
+  currently standing and looking instead - no aiming needed - every bot that still has one
+  undeployed, one per press, then finally your own, so a few presses deploy the whole team; **Z**
+  recalls every bot-placed tool back into its bot, and your own placed sentry back into your
+  inventory too, all at once. One switch turns all three off. Shift+E and the bot half of X only
+  work for the host (bots belong to the host); your own half of X and Z works for everyone.
 - **Ping Anywhere**: `PING <KEY>` from any terminal finds an item anywhere in the level, not just
   in that terminal's zone; the marker shows for 10 s. Same-zone pings are left to the game's own
   PING, and any error falls back to it.
@@ -72,8 +74,8 @@ its own, each with its own config section and on/off switch:
 | Shift+E (aiming your sentry) | Place the next bot's tool at your aim instead (host only) |
 | Insert | Infinite health on/off |
 | Delete | Infinite ammo on/off |
-| Z | Recall every bot-placed tool at once (host only) |
-| X | Place your own sentry without pulling it out |
+| X | Drop the next turret at your current position/orientation - bots first (host only), then your own |
+| Z | Recall every bot-placed tool (host only) and your own placed sentry, all at once |
 
 **Infinite ammo and health** — **Insert** toggles infinite health (no damage to you; bots and
 teammates are unaffected) and **Delete** toggles infinite ammo (every gun and tool stays full,

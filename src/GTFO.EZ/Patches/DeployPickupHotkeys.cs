@@ -7,16 +7,20 @@ using UnityEngine;
 
 namespace GTFO.EZ.Patches;
 
-// G.EZ-T34 spike: Shift+E deploys the first bot with an undeployed tool at wherever the local
-// player is currently aiming their own tool's placement ghost - reusing the exact validated
-// pose/validity SentryGunFirstPerson already computes every frame for the player's own placement,
-// rather than guessing a pose ourselves. There's no vanilla order for "deploy now" to route
-// through instead (PlayerBotManager's order enum only has Guard/Follow/Stop/Sneak/Roam/Invite/
-// Activate/Deactivate - no Deploy, no item reference), so this calls the bot AI's own placement
-// method directly (exposed as public by the IL2CPP interop stubs). Picking a bot-placed deployable
-// back up is left to whatever the normal vanilla E-interact already does with a placed item -
-// confirmed to compile against the real interop assemblies, not confirmed safe by decompiling
-// alone - every call here is guarded so a failure logs and moves on instead of breaking the mod.
+// G.EZ-T34 spike, since extended by G.EZ-T107: Shift+E deploys the first bot with an undeployed
+// tool at wherever the local player is currently aiming their own tool's placement ghost - reusing
+// the exact validated pose/validity SentryGunFirstPerson already computes every frame for the
+// player's own placement, rather than guessing a pose ourselves. X deploys the same way but at the
+// player's current position/orientation instead of their aim, one turret per press (every bot with
+// an undeployed one, then finally the player's own), so repeated presses deploy the whole team
+// without aiming at all. There's no vanilla order for "deploy now" to route through instead
+// (PlayerBotManager's order enum only has Guard/Follow/Stop/Sneak/Roam/Invite/Activate/Deactivate -
+// no Deploy, no item reference), so this calls the bot AI's own placement method directly (exposed
+// as public by the IL2CPP interop stubs); Z, the reverse, likewise calls the bot AI's own pickup
+// action for bots and SentryGunInstance.PickUp(PlayerAgent) directly (also public) for the local
+// player's own - confirmed to compile against the real interop assemblies, not confirmed safe by
+// decompiling alone - every call here is guarded so a failure logs and moves on instead of breaking
+// the mod.
 [HarmonyPatch(typeof(Dam_PlayerDamageLocal), nameof(Dam_PlayerDamageLocal.Update))]
 internal static class DeployPickupHotkeys_Update_Patch
 {
@@ -27,18 +31,23 @@ internal static class DeployPickupHotkeys_Update_Patch
         if (!Plugin.BotsDeployOnShiftE.Value || !Hotkeys.InPlay) return;
 
         // Bots belong to the host: a client running these would only move its own copy of the bot's
-        // turret, leaving host and client disagreeing about it. X (your own sentry) works anywhere.
-        // The guard is armed on a client too, so Shift+E means the same thing for everyone: never
-        // your own placement.
+        // turret, leaving host and client disagreeing about it. X and Z gate their bot half the same
+        // way (SNet.IsMaster) and always run their own-sentry half regardless of host/client. The
+        // Shift+E guard below is armed on a client too, so Shift+E means the same thing for everyone:
+        // never your own placement.
         if (Hotkeys.ShiftHeld && Input.GetKeyDown(KeyCode.E))
         {
             Hotkeys.ShiftEPressedAt = Time.time;
             if (SNet.IsMaster) BotDeployAtAim.TryDeployNext();
         }
 
-        if (SNet.IsMaster && Input.GetKeyDown(KeyCode.Z)) PickupAllBotTools.Activate();
+        if (Input.GetKeyDown(KeyCode.Z))
+        {
+            if (SNet.IsMaster) PickupAllBotTools.Activate();
+            OwnSentryAutoPickup.Pickup();
+        }
 
-        if (Input.GetKeyDown(KeyCode.X)) OwnSentryAutoPlace.Place();
+        if (Input.GetKeyDown(KeyCode.X)) QuickDropAll.Activate();
     }
 }
 
@@ -146,6 +155,13 @@ internal static class BotDeployAtAim
             return;
         }
 
+        if (!DeployBotAt(pose, "Shift+E")) Plugin.Logger.LogInfo("Shift+E: no bot has an undeployed tool to place.");
+    }
+
+    // Deploys the first bot with an undeployed sentry at the given pose. Shared by Shift+E (pose from
+    // your aim) and X (pose from your current position/orientation) - only the pose source differs.
+    internal static bool DeployBotAt(Pose pose, string logTag)
+    {
         List<PlayerAIBot> bots;
         try
         {
@@ -153,8 +169,8 @@ internal static class BotDeployAtAim
         }
         catch (Exception e)
         {
-            Plugin.Logger.LogWarning($"Shift+E: couldn't list bots. {e}");
-            return;
+            Plugin.Logger.LogWarning($"{logTag}: couldn't list bots. {e}");
+            return false;
         }
 
         foreach (var bot in bots)
@@ -175,16 +191,16 @@ internal static class BotDeployAtAim
                 // call. Clearing the slot instead (an earlier version) orphaned the turret, which
                 // broke bot item commands and gave Z nothing to recall.
                 backpack.SetDeployed(InventorySlot.GearClass, true);
-                Plugin.Logger.LogInfo("Shift+E: deployed a bot's tool at your aim.");
-                return;
+                Plugin.Logger.LogInfo($"{logTag}: deployed a bot's tool.");
+                return true;
             }
             catch (Exception e)
             {
-                Plugin.Logger.LogWarning($"Shift+E: deploy attempt failed for one bot, trying the next. {e}");
+                Plugin.Logger.LogWarning($"{logTag}: deploy attempt failed for one bot, trying the next. {e}");
             }
         }
 
-        Plugin.Logger.LogInfo("Shift+E: no bot has an undeployed tool to place.");
+        return false;
     }
 
     // Mirrors exactly what the player's own SentryGunFirstPerson.Update() already computes every
@@ -215,9 +231,9 @@ internal static class BotDeployAtAim
         PlayerManager.TryGetLocalPlayerAgent(out var agent) && agent?.Inventory != null && agent.Inventory.WieldedSlot == slot;
 }
 
-// X: places your own sentry without pulling it out first - at your current placement aim if you're
-// already holding it on a valid spot, otherwise on the ground a step in front of you, facing where
-// you look. Goes through the sentry's own PlaceOnGround, the same call a normal placement ends in.
+// Places your own sentry without pulling it out first, at a given pose. Goes through the sentry's
+// own PlaceOnGround, the same call a normal placement ends in. Used by X (QuickDropAll) with a pose
+// from your current position/orientation.
 internal static class OwnSentryAutoPlace
 {
     private const float StepAhead = 1.5f;
@@ -231,37 +247,16 @@ internal static class OwnSentryAutoPlace
     // Lets X's own PlaceOnGround call past the Shift modifier guard.
     internal static bool Placing;
 
-    internal static void Place()
+    // True if your own sentry was placed; false if you don't have one out, it's already placed, or
+    // you're downed - these aren't failures, so QuickDropAll logs them itself rather than this.
+    internal static bool TryPlaceAt(Pose pose)
     {
         try
         {
             var backpack = PlayerBackpackManager.LocalBackpack;
             var sentry = BotDeployAtAim.LocalSentry();
-            if (backpack == null || sentry == null)
-            {
-                Plugin.Logger.LogInfo("X: you don't have a sentry gun equipped.");
-                return;
-            }
-            if (backpack.IsDeployed(InventorySlot.GearClass))
-            {
-                Plugin.Logger.LogInfo("X: your sentry is already placed.");
-                return;
-            }
-
-            // Downed (or dead), you can't place a tool the normal way either.
-            if (!PlayerManager.TryGetLocalPlayerAgent(out var agent) || agent == null || !agent.Alive)
-            {
-                Plugin.Logger.LogInfo("X: you can't place your sentry while downed.");
-                return;
-            }
-
-            // The aim pose is the game's own validated spot (m_lastCanPlace is already true there);
-            // the fallback only counts once its probe has proved a flat spot you can see.
-            if (!BotDeployAtAim.TryGetAimPose(out var pose) && !TryGroundAhead(agent, out pose))
-            {
-                Plugin.Logger.LogInfo("X: no clear ground in front of you to place on.");
-                return;
-            }
+            if (backpack == null || sentry == null) return false;
+            if (backpack.IsDeployed(InventorySlot.GearClass)) return false;
 
             sentry.m_placePos = pose.position;
             sentry.m_cameraLookRot = pose.rotation;
@@ -269,13 +264,14 @@ internal static class OwnSentryAutoPlace
             Placing = true;
             sentry.PlaceOnGround();
             // PlaceOnGround leaves the yellow ground arrow showing; the vanilla flow only hides it
-            // when you put the sentry away, which never happens when X places it from the backpack.
+            // when you put the sentry away, which never happens when it's placed from the backpack.
             sentry.m_placementIndicator?.SetVisible(false);
-            Plugin.Logger.LogInfo("X: placed your sentry.");
+            return true;
         }
         catch (Exception e)
         {
             Plugin.Logger.LogWarning($"X: couldn't place your sentry. {e}");
+            return false;
         }
         finally
         {
@@ -283,7 +279,7 @@ internal static class OwnSentryAutoPlace
         }
     }
 
-    private static bool TryGroundAhead(PlayerAgent agent, out Pose pose)
+    internal static bool TryGroundAhead(PlayerAgent agent, out Pose pose)
     {
         pose = default;
         if (agent.FPSCamera == null) return false;
@@ -306,9 +302,48 @@ internal static class OwnSentryAutoPlace
     }
 }
 
+// X: drops the next turret at wherever you're currently standing and looking - every bot that still
+// has one undeployed, one per press, then finally your own - so you can deploy the whole team
+// without aiming through anyone's placement ghost (Shift+E and E still do that, for precise spots).
+internal static class QuickDropAll
+{
+    internal static void Activate()
+    {
+        try
+        {
+            if (!PlayerManager.TryGetLocalPlayerAgent(out var agent) || agent == null || !agent.Alive)
+            {
+                Plugin.Logger.LogInfo("X: you can't drop a turret while downed.");
+                return;
+            }
+            if (!OwnSentryAutoPlace.TryGroundAhead(agent, out var pose))
+            {
+                Plugin.Logger.LogInfo("X: no clear ground in front of you to place on.");
+                return;
+            }
+
+            // Bots first (host only - they belong to the host), then your own, so repeated presses
+            // clear the whole team's turrets in order before cycling back to yours.
+            if (SNet.IsMaster && BotDeployAtAim.DeployBotAt(pose, "X")) return;
+
+            if (OwnSentryAutoPlace.TryPlaceAt(pose))
+            {
+                Plugin.Logger.LogInfo("X: placed your sentry.");
+                return;
+            }
+
+            Plugin.Logger.LogInfo("X: nothing left to drop - every turret is already placed.");
+        }
+        catch (Exception e)
+        {
+            Plugin.Logger.LogWarning($"X: couldn't drop a turret. {e}");
+        }
+    }
+}
+
 // Z: instantly recalls every bot-placed tool still down, straight back into the bot that
-// placed it, all at once - the reverse of Shift+E. Your own placed tool is untouched; walk up and
-// interact with it as normal.
+// placed it, all at once - the reverse of X's bot half. Your own placed tool is recalled too, by
+// OwnSentryAutoPickup below - the reverse of X's own half.
 internal static class PickupAllBotTools
 {
     internal static void Activate()
@@ -366,5 +401,47 @@ internal static class PickupAllBotTools
         }
 
         Plugin.Logger.LogInfo($"Z: recalled {recalled} bot sentry(s) of {placed.Length} placed in the level.");
+    }
+}
+
+// Z (own half): instantly recalls your own placed sentry straight back into your inventory, the
+// reverse of X's own half - works for the host and every client, since it's your own item, not a
+// bot's. SentryGunInstance.PickUp(PlayerAgent) is the same real pickup call the vanilla walk-up-and-
+// interact flow ends in (confirmed public in the interop metadata), called directly here exactly
+// like PlaceOnGround already is for placing.
+internal static class OwnSentryAutoPickup
+{
+    internal static void Pickup()
+    {
+        try
+        {
+            var backpack = PlayerBackpackManager.LocalBackpack;
+            if (backpack == null || !backpack.IsDeployed(InventorySlot.GearClass)) return; // nothing of yours is out
+
+            if (!PlayerManager.TryGetLocalPlayerAgent(out var agent) || agent == null) return;
+
+            SentryGunInstance? placed = null;
+            foreach (var obj in UnityEngine.Object.FindObjectsOfType(Il2CppInterop.Runtime.Il2CppType.Of<SentryGunInstance>()))
+            {
+                var candidate = obj?.TryCast<SentryGunInstance>();
+                if (candidate?.m_belongsToBackpack != null && candidate.m_belongsToBackpack.Pointer == backpack.Pointer)
+                {
+                    placed = candidate;
+                    break;
+                }
+            }
+            if (placed == null)
+            {
+                Plugin.Logger.LogInfo("Z: couldn't find your placed sentry in the level.");
+                return;
+            }
+
+            placed.PickUp(agent);
+            Plugin.Logger.LogInfo("Z: recalled your own sentry.");
+        }
+        catch (Exception e)
+        {
+            Plugin.Logger.LogWarning($"Z: couldn't recall your own sentry. {e}");
+        }
     }
 }

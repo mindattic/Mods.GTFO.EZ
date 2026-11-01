@@ -741,8 +741,10 @@ public class Plugin : BasePlugin
             "green ghost/arrow), Shift+E deploys the first bot with an undeployed tool there instead, reusing " +
             "that same aim - your own plain-E placement is untouched. Calls the bot AI's own placement method " +
             "directly since there's no vanilla order for 'deploy now' - only confirmed to compile, not confirmed " +
-            "safe by decompiling alone. This switch also covers the other experimental sentry keys - Z (recall " +
-            "bot tools) and X (place your own) - so false turns all of them off. On by default to test live.");
+            "safe by decompiling alone. This switch also covers the other experimental sentry keys - X (drop the " +
+            "next turret at your current position/orientation: bots first, then your own) and Z (recall every " +
+            "bot-placed tool and your own placed sentry, all at once) - so false turns all of them off. On by " +
+            "default to test live.");
 
         FogClearEnabled = Config.Bind("Fog Clearing", "Fog Clearing Enabled", true,
             "Keeps a silent, invisible fog-clearing sphere around you - the same fog-system sphere the Fog Repeller " +

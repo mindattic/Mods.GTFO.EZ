@@ -66,10 +66,12 @@ weapon, and every ranged weapon archetype plus sentries - all left at vanilla by
 **Experimental** (`Experimental` config section; see Limitations below):
 
 - **Bot tool controls** (on by default): aim your own sentry's placement ghost and press
-  **Shift+E** to drop the next bot's equipped tool there instead of yours; **Z**
-  instantly recalls every bot-placed tool back into its bot; **X** places your own sentry without
-  pulling it out. Shift+E and Z only work for the host (bots belong to the host); on a client,
-  Shift+E does nothing and never places your own sentry.
+  **Shift+E** to drop the next bot's equipped tool there instead of yours; **X** drops the next
+  turret wherever you're currently standing and looking instead - no aiming needed - every bot that
+  still has one undeployed, one per press, then finally your own; **Z** instantly recalls every
+  bot-placed tool back into its bot, and your own placed sentry back into your inventory too, all at
+  once. Shift+E and the bot half of X and Z only work for the host (bots belong to the host); your
+  own half of X and Z works for everyone.
 - **Ping Anywhere** (on by default): `PING <KEY>` from any terminal reaches an item anywhere in
   the level, not just the terminal's own zone. Same-zone pings are left to the game's own PING.
   Technique credit: [BetterTerminal](https://github.com/AlexanderMakunin/BetterTerminal) by
@@ -81,8 +83,8 @@ weapon, and every ranged weapon archetype plus sentries - all left at vanilla by
 | Shift+E (aiming your sentry) | Place the next bot's tool at your aim instead (host only) |
 | Insert | Infinite health on/off |
 | Delete | Infinite ammo on/off |
-| Z | Recall every bot-placed tool at once (host only) |
-| X | Place your own sentry without pulling it out (at your aim if holding it, else just ahead of you) |
+| X | Drop the next turret at your current position/orientation - bots first (host only), then your own |
+| Z | Recall every bot-placed tool (host only) and your own placed sentry, all at once |
 
 ## Quick start
 
@@ -246,9 +248,12 @@ scheme at v17. Current release: v19.
   by letting the game also evaluate the PING it had already handled; this version owns the
   command fully (BetterTerminal's approach) and falls back to the game's PING on any error.
 - The bot tool controls call the bot AI's own placement/pickup methods directly (vanilla has no
-  "deploy now" order). Shift+E, X (which does nothing on a spot the game wouldn't allow, behind a
-  wall or door, or while you're downed) and Z are confirmed working in play, as is the weapon
-  switch-back after placing your own.
+  "deploy now" order), and for your own sentry call `SentryGunInstance.PickUp(PlayerAgent)` directly
+  too (the same real pickup call the vanilla walk-up-and-interact flow ends in). Shift+E and E are
+  confirmed working in play, as is the weapon switch-back after placing your own. X's quick-drop-all
+  and Z's own-sentry recall (v19) compile against the real interop assemblies and are placement/
+  pickup calls proven safe elsewhere in this mod, but haven't yet been confirmed in an actual play
+  session.
 - Fog clearing is confirmed in play; its density is read from the vanilla
   Fog Repeller prefab at runtime (logged), with a Density Override if that doesn't clear fog.
 - Datablock patches can only be verified by launching the game; they have no automated test
