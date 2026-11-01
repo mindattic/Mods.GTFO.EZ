@@ -125,3 +125,5 @@ _Nothing recorded yet._ (G.EZ-T5 closed — see Tickets below.)
 | G.EZ-T102 | 2026-10-26 | chore | closed | Cut the v18 release: moves in step with the GTFO.* family's version number, bump VERSION/manifest, rebuild and repackage dist/ | package/CHANGELOG.md |
 | G.EZ-T103 | 2026-10-30 | fix | closed | build.ps1 leaves stale package/*.dll on disk, so a removed dependency ships into dist/ zip | — |
 | G.EZ-T104 | 2026-11-01 | chore | closed | Rename repo to Mods.GTFO.EZ for mod organization (GitHub + folder + refs) | 2fef06c30513f65ef92a4b20efd7581077e8948d |
+| G.EZ-T105 | 2026-11-01 | fix | closed | Verify/bug-hunt bot turret hotkeys (Shift+E deploy, Z recall-all), refresh docs, cut v19 release | Exhaustive bug hunt of DeployPickupHotkeys.cs/SentryInstantPlacementPatch.cs/BotSentryEquipPatch.cs and the rest of src/: no real bugs found, Shift+E/Z/X behavior matches documented and previously-confirmed-in-play design. Closed via G.EZ-T106 (v19 release, 8134471). |
+| G.EZ-T106 | 2026-11-01 | chore | closed | Cut v19 release: bump VERSION/manifest, rebuild and repackage dist/ | 8134471 on main; dist/GTFO.EZ-19.0.0.zip built, dotnet build 0 warnings/0 errors |
