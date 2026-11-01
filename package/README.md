@@ -536,6 +536,16 @@ others' prior work:
 
 ## Changelog
 
+### v19
+
+- Verified the bot tool controls against the game's turret-handling code: Shift+E only ever picks
+  a bot actually carrying a Sentry Gun (mine deployer/C-foam/bio tracker bots are skipped), and Z
+  correctly matches every currently placed sentry back to the bot whose backpack owns it and
+  recalls them all at once. Exhaustive bug hunt pass found no real bugs - behavior matches what's
+  documented and already confirmed in play.
+- Moves in step with the GTFO.EZ family's version number (GTFO.EZ, GTFO.EZ.AbsurdWeapons,
+  GTFO.EZ.AbsurdMoves and GTFO.EZ.AbsurdItems share one).
+
 ### v18
 
 - Moves in step with the GTFO.EZ family's version number (GTFO.EZ, GTFO.EZ.AbsurdWeapons,
