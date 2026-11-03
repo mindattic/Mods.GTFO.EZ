@@ -43,8 +43,16 @@ internal static class DeployPickupHotkeys_Update_Patch
 
         if (Input.GetKeyDown(KeyCode.Z))
         {
-            if (SNet.IsMaster) PickupAllBotTools.Activate();
-            OwnSentryAutoPickup.Pickup();
+            // G.EZ-T109: blocked while downed, the same as X (a downed player can't pick a turret up).
+            if (!PlayerManager.TryGetLocalPlayerAgent(out var agent) || agent == null || !agent.Alive)
+            {
+                Plugin.Logger.LogInfo("Z: you can't recall turrets while downed.");
+            }
+            else
+            {
+                if (SNet.IsMaster) PickupAllBotTools.Activate();
+                OwnSentryAutoPickup.Pickup();
+            }
         }
 
         if (Input.GetKeyDown(KeyCode.X)) QuickDropAll.Activate();

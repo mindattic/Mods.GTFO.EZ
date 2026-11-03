@@ -16,9 +16,49 @@ namespace GTFO.EZ.Patches;
 [HarmonyPatch(typeof(GameDataInit), nameof(GameDataInit.Initialize))]
 internal static class GameDataInit_Initialize_Patch
 {
+    // G.EZ-T109: GameDataInit has a ReInitialize too. If Initialize runs again over the SAME block
+    // objects with the values this postfix already scaled still in them, scaling again would compound
+    // every multiplier. The player block (id 1) is the witness: same object and the exact values this
+    // postfix left in it means "already applied, not reloaded" and the run is skipped. Fresh block
+    // objects, or values the reload put back, are a real reload and get the tweaks once.
+    private static IntPtr appliedPlayerBlock;
+    private static (float Health, float Regen, float FallMin, float FallMinHeight, float RegenCap, float RunSpeed) appliedPlayerValues;
+
+    private static (float, float, float, float, float, float) PlayerFingerprint(PlayerDataBlock player) =>
+        (player.health, player.healthRegenPerSecond, player.fallDamageMin, player.fallDamageMinHeight,
+            player.healthRegenRelMax, player.runMoveSpeed);
+
+    private static bool AlreadyApplied()
+    {
+        var player = GameDataBlockBase<PlayerDataBlock>.GetBlock(1);
+        return player != null && appliedPlayerBlock != IntPtr.Zero && player.Pointer == appliedPlayerBlock
+            && PlayerFingerprint(player).Equals(appliedPlayerValues);
+    }
+
+    private static void RememberApplied()
+    {
+        var player = GameDataBlockBase<PlayerDataBlock>.GetBlock(1);
+        if (player == null) return;
+        appliedPlayerBlock = player.Pointer;
+        appliedPlayerValues = PlayerFingerprint(player);
+    }
+
     [HarmonyPostfix]
     private static void Postfix()
     {
+        try
+        {
+            if (AlreadyApplied())
+            {
+                Plugin.Logger.LogInfo("GTFO.EZ: GameDataInit ran again over the already-tweaked datablocks - not scaling them a second time.");
+                return;
+            }
+        }
+        catch (Exception e)
+        {
+            Plugin.Logger.LogWarning($"GTFO.EZ couldn't check for an earlier tweak pass, applying: {e.Message}");
+        }
+
         // Each category gets its own try/catch rather than one wrapping the whole method - a
         // future game patch that renames/restructures a single field (the one failure mode this
         // mod can't survive, per the class comment above) would otherwise take down every other,
@@ -33,6 +73,7 @@ internal static class GameDataInit_Initialize_Patch
         RunTweakCategory("loot", ApplyLootTweaks);
         RunTweakCategory("melee", ApplyMeleeTweaks);
         RunTweakCategory("weapon", ApplyWeaponTweaks);
+        RunTweakCategory("re-apply guard", RememberApplied);
         Plugin.Logger.LogInfo("GTFO.EZ tweaks applied. Goo goo. Gah gah.");
     }
 
