@@ -477,12 +477,26 @@ internal static class GameDataInit_Initialize_Patch
 // an all-zero lottery. Runs after every other GTFO.* mod's GameDataInit work (GTFO.EZ.AbsurdItems' kit
 // loot replaces the items, and with them these weights): only a table that still has nothing left
 // to pick is emptied, so it's right whether or not that run filled the tables.
-[HarmonyPatch(typeof(GameDataInit), nameof(GameDataInit.Initialize))]
+//
+// Patched under its own Harmony ID (Apply, from Plugin.Load) rather than by PatchAll: AbsurdItems'
+// kit postfixes are [HarmonyAfter("MindAttic.GTFO.EZ")], which covers every patch under that ID -
+// this one included - so under it the two "after"s formed a cycle, and Harmony breaks a cycle by
+// dropping the lowest-priority patch's dependency, i.e. this one's. It then ran before the kit fill,
+// zeroing tables the kits were about to fill (KitLoot scales SpawnsPerZone from what it finds).
 internal static class GameDataInit_EmptyDisabledLoot_Patch
 {
-    [HarmonyPostfix]
-    [HarmonyAfter("MindAttic.GTFO.EZ.AbsurdItems")]
-    [HarmonyPriority(Priority.Last)]
+    private const string HarmonyId = Plugin.GUID + ".EmptyDisabledLoot";
+
+    internal static void Apply()
+    {
+        var postfix = new HarmonyMethod(AccessTools.Method(typeof(GameDataInit_EmptyDisabledLoot_Patch), nameof(Postfix)))
+        {
+            priority = Priority.Last,
+            after = new[] { "MindAttic.GTFO.EZ.AbsurdItems" },
+        };
+        new Harmony(HarmonyId).Patch(AccessTools.Method(typeof(GameDataInit), nameof(GameDataInit.Initialize)), postfix: postfix);
+    }
+
     private static void Postfix()
     {
         try

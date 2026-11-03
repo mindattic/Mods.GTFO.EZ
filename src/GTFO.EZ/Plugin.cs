@@ -236,6 +236,7 @@ public class Plugin : BasePlugin
         ApplyConfigDefaultMigrations();
 
         new Harmony(GUID).PatchAll();
+        Patches.GameDataInit_EmptyDisabledLoot_Patch.Apply();
 
         Logger.LogInfo($"{NAME} v{VERSION} loaded.");
     }
