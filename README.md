@@ -6,7 +6,7 @@ who want to go deeper.
 
 ![Language](https://img.shields.io/badge/language-C%23%20(.NET%206)-blue)
 ![Platform](https://img.shields.io/badge/platform-BepInEx%20IL2CPP-informational)
-![Status](https://img.shields.io/badge/status-active%20(v19)-success)
+![Status](https://img.shields.io/badge/status-active%20(v20)-success)
 
 Try it: install from [Thunderstore](https://thunderstore.io/c/gtfo/p/MindAttic/GtfoEZ/) (listed
 there as `GtfoEZ`, since package names can't contain a period).
@@ -76,6 +76,10 @@ weapon, and every ranged weapon archetype plus sentries - all left at vanilla by
   the level, not just the terminal's own zone. Same-zone pings are left to the game's own PING.
   Technique credit: [BetterTerminal](https://github.com/AlexanderMakunin/BetterTerminal) by
   AlexanderMakunin (MIT).
+- **Multi-Sentry Cycling** (new in v20, on by default): while your Tool slot is wielded, pressing
+  its select key again (4 by default) swaps your Sentry Gun to the next of four real vanilla
+  fire-mode variants (burst, staggering auto, sniper semi, shotgun) instead of just the one you
+  loaded out with, so one player can have several different turrets down at once.
 
 | Input | Action |
 |---|---|
@@ -85,6 +89,7 @@ weapon, and every ranged weapon archetype plus sentries - all left at vanilla by
 | Delete | Infinite ammo on/off |
 | X | Drop the next turret at your current position/orientation - bots first (host only), then your own |
 | Z | Recall every bot-placed tool (host only) and your own placed sentry, all at once |
+| 4 (Tool wielded, pressed again) | Cycle your Sentry Gun to the next of four fire-mode variants |
 
 ## Quick start
 
@@ -233,7 +238,7 @@ The GTFO.EZ family - GTFO.EZ, GTFO.EZ.AbsurdWeapons, GTFO.EZ.AbsurdMoves and GTF
 shares one version number, so a matching set is easy to spot: they were aligned at **v13** (the
 companions were v1 before, and GTFO.EZ's in-development v14 was folded into v13), and every release of
 the family bumps all four together. GTFO.CrashTestDummies and GTFO.SkipDrop joined the same `vN`
-scheme at v17. Current release: v19.
+scheme at v17. Current release: v20.
 
 ## Sharing with friends
 
@@ -254,6 +259,10 @@ scheme at v17. Current release: v19.
   and Z's own-sentry recall (v19) compile against the real interop assemblies and are placement/
   pickup calls proven safe elsewhere in this mod, but haven't yet been confirmed in an actual play
   session.
+- Multi-Sentry Cycling (v20) swaps gear via the same `PlayerBackpackManager.EquipLocalGear` call
+  GTFO.EZ.AbsurdWeapons' gear cycling already uses in play, onto four real vanilla fire-mode blocks
+  confirmed to exist by logging the game's own data at boot - but the cycling itself hasn't yet been
+  confirmed in an actual play session.
 - Fog clearing is confirmed in play; its density is read from the vanilla
   Fog Repeller prefab at runtime (logged), with a Density Override if that doesn't clear fog.
 - Datablock patches can only be verified by launching the game; they have no automated test

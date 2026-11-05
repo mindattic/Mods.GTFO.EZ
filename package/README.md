@@ -67,6 +67,10 @@ its own, each with its own config section and on/off switch:
 - **Ping Anywhere**: `PING <KEY>` from any terminal finds an item anywhere in the level, not just
   in that terminal's zone; the marker shows for 10 s. Same-zone pings are left to the game's own
   PING, and any error falls back to it.
+- **Multi-Sentry Cycling (SPIKE)**: while your Tool slot is wielded, pressing its select key again
+  (**4** by default) swaps your Sentry Gun to the next of four real vanilla fire-mode variants
+  (burst, staggering auto, sniper semi, shotgun) instead of just the one you loaded out with -
+  place one, cycle, place the next, so one player can have several different turrets down at once.
 
 | Input | Action |
 |---|---|
@@ -76,6 +80,7 @@ its own, each with its own config section and on/off switch:
 | Delete | Infinite ammo on/off |
 | X | Drop the next turret at your current position/orientation - bots first (host only), then your own |
 | Z | Recall every bot-placed tool (host only) and your own placed sentry, all at once |
+| 4 (Tool wielded, pressed again) | Cycle your Sentry Gun to the next of four fire-mode variants |
 
 **Infinite ammo and health** — **Insert** toggles infinite health (no damage to you; bots and
 teammates are unaffected) and **Delete** toggles infinite ammo (every gun and tool stays full,
@@ -484,10 +489,12 @@ without GTFO.EZ installed, too.
 - **GTFO.EZ.AbsurdWeapons:** compatible. Everything it changes in the game's data is applied after this
   mod's, so where the two clash it wins. Its gear cycling (a slot's own select key, 1-4 by default,
   pressed again while that slot is in hand) doesn't overlap with this mod's keys (E, Shift+E, X, Z).
-- **GTFO.EZ.AbsurdItems:** compatible - artifact buffs and consumables as kits (*Consumables Are
-  Kits*) that used to be in this mod live there now, with the same settings, along with the Hand
-  Grenade, Stim Pack and Loot Mix from GTFO.EZ.AbsurdWeapons. Its kit loot is applied after this mod's
-  data changes and replaces this mod's consumable spawn odds along with the items.
+- **GTFO.EZ.AbsurdItems:** compatible, and as of v20 a Thunderstore dependency of this mod - installing
+  GTFO.EZ via a mod manager auto-installs it too, though it's still its own mod, plugin and config,
+  not merged code. Artifact buffs and consumables as kits (*Consumables Are Kits*) that used to be in
+  this mod live there now, with the same settings, along with the Hand Grenade, Stim Pack and Loot Mix
+  from GTFO.EZ.AbsurdWeapons. Its kit loot is applied after this mod's data changes and replaces this
+  mod's consumable spawn odds along with the items.
 - **Turning a mod off:** every GTFO.* mod's `.cfg` starts with `[0. Mod] Enabled`; set it to
   `false` and that mod loads nothing, and the others treat it as not installed.
 - **GTFO.EZ.AbsurdMoves:** compatible - the dash that used to be in this mod lives there now, as its
@@ -538,8 +545,27 @@ others' prior work:
 
 ## Changelog
 
+### v20
+
+- Updated the BepInEx dependency to BepInExPack_GTFO 3.2.4.
+- **GTFO.EZ.AbsurdItems is now a Thunderstore dependency**, so it auto-installs alongside GTFO.EZ
+  instead of needing a separate manual install. It's still its own mod, plugin and config - nothing
+  merged - this only changes how it gets onto your machine.
+- **Experimental, new (`Multi-Sentry Cycling (SPIKE)`, on by default):** while your Tool slot is
+  wielded, pressing its select key again (**4** by default) cycles your Sentry Gun through four real
+  vanilla fire-mode variants (burst, staggering auto, sniper semi, shotgun) instead of just the one
+  you loaded out with - place one with E, cycle to the next with 4, place that one too - so one
+  player can have several different turrets down at once instead of just one.
+
 ### v19
 
+- **X redesigned into a quick-drop-all key:** each press now drops the next turret at wherever
+  you're currently standing and looking (no aiming needed) - every bot that still has an undeployed
+  one, one per press, then finally your own - so a few presses deploy the whole team's turrets.
+  Shift+E and E are unchanged (aim-based, for precise placement).
+- **Z now also recalls your own placed sentry**, not just bots': it calls the same real pickup the
+  vanilla walk-up-and-interact flow ends in, directly, so it works instantly from anywhere for the
+  host and every client.
 - Verified the bot tool controls against the game's turret-handling code: Shift+E only ever picks
   a bot actually carrying a Sentry Gun (mine deployer/C-foam/bio tracker bots are skipped), and Z
   correctly matches every currently placed sentry back to the bot whose backpack owns it and
