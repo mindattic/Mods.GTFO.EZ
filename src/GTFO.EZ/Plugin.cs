@@ -102,6 +102,11 @@ public class Plugin : BasePlugin
     // confirmed safe by decompiling alone - may be reverted if it doesn't hold up in play.
     internal static ConfigEntry<bool> BotsDeployOnShiftE = null!;
 
+    // G.EZ-T111 spike - see Patches/MultiTurretTest.cs. Test 1: the local player cycles their Tool
+    // slot through four real vanilla Sentry Gun fire-mode variants instead of just the one they
+    // loaded out with, so one player can have several turrets down at once.
+    internal static ConfigEntry<bool> MultiSentryCyclingEnabled = null!;
+
     // G.EZ-T39 - see Patches/FogClearPulse.cs.
     internal static ConfigEntry<bool> FogClearEnabled = null!;
     internal static ConfigEntry<float> FogClearStartRange = null!;
@@ -746,6 +751,12 @@ public class Plugin : BasePlugin
             "next turret at your current position/orientation: bots first, then your own) and Z (recall every " +
             "bot-placed tool and your own placed sentry, all at once) - so false turns all of them off. On by " +
             "default to test live.");
+
+        MultiSentryCyclingEnabled = Config.Bind("Experimental", "Multi-Sentry Cycling (SPIKE)", true,
+            "G.EZ-T111 spike, test 1: while your Tool slot is wielded, pressing its select key again cycles your " +
+            "Sentry Gun through four real vanilla fire-mode variants (burst, staggering auto, sniper semi, " +
+            "shotgun) instead of just the one you loaded out with - each one placed normally with E, so one " +
+            "player can have several different turrets down at once. On by default to test live.");
 
         FogClearEnabled = Config.Bind("Fog Clearing", "Fog Clearing Enabled", true,
             "Keeps a silent, invisible fog-clearing sphere around you - the same fog-system sphere the Fog Repeller " +
