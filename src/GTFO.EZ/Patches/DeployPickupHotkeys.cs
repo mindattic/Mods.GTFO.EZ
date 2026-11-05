@@ -163,7 +163,8 @@ internal static class BotDeployAtAim
             return;
         }
 
-        if (!DeployBotAt(pose, "Shift+E")) Plugin.Logger.LogInfo("Shift+E: no bot has an undeployed tool to place.");
+        // DeployBotAt logs its own reason (and now, per G.EZ-T110, which bot had what) on failure.
+        DeployBotAt(pose, "Shift+E");
     }
 
     // Deploys the first bot with an undeployed sentry at the given pose. Shared by Shift+E (pose from
@@ -181,16 +182,38 @@ internal static class BotDeployAtAim
             return false;
         }
 
+        // Filled in as bots are skipped, so a total failure can say *why* instead of just "no bot has
+        // an undeployed tool" - the symptom looked identical whether no bot carried a sentry, every
+        // sentry was already down, or a bot carried something else entirely, and that ambiguity made
+        // G.EZ-T110 impossible to pin down from a log alone.
+        var skipped = new List<string>();
+
         foreach (var bot in bots)
         {
             try
             {
                 var backpack = bot?.Backpack;
-                if (backpack == null || !backpack.TryGetBackpackItem(InventorySlot.GearClass, out var backpackItem) || backpackItem == null) continue;
-                if (backpack.IsDeployed(InventorySlot.GearClass)) continue;
+                if (backpack == null) { skipped.Add("no backpack"); continue; }
+                if (!backpack.TryGetBackpackItem(InventorySlot.GearClass, out var backpackItem) || backpackItem == null)
+                {
+                    skipped.Add("empty Tool slot");
+                    continue;
+                }
+
+                var gearName = backpackItem.GearIDRange?.PublicGearName ?? "unknown gear";
+                if (backpack.IsDeployed(InventorySlot.GearClass))
+                {
+                    skipped.Add($"{gearName} (already deployed)");
+                    continue;
+                }
+
                 // Only a sentry: a bot carrying a mine deployer, C-foam launcher or bio tracker would
                 // fail the placement (or be marked deployed with nothing placed) ahead of a sentry bot.
-                if (backpackItem.Instance?.TryCast<SentryGunFirstPerson>() == null) continue;
+                if (backpackItem.Instance?.TryCast<SentryGunFirstPerson>() == null)
+                {
+                    skipped.Add($"{gearName} (not a sentry)");
+                    continue;
+                }
 
                 var desc = new PlayerBotActionDeploySentryGun.Descriptor(bot) { InstallationPose = pose };
                 var action = new PlayerBotActionDeploySentryGun(desc) { m_backpackItem = backpackItem };
@@ -204,10 +227,14 @@ internal static class BotDeployAtAim
             }
             catch (Exception e)
             {
+                skipped.Add($"error: {e.Message}");
                 Plugin.Logger.LogWarning($"{logTag}: deploy attempt failed for one bot, trying the next. {e}");
             }
         }
 
+        Plugin.Logger.LogInfo(skipped.Count == 0
+            ? $"{logTag}: no bots in the level."
+            : $"{logTag}: no bot has an undeployed tool to place. Bots' Tool slots: {string.Join(", ", skipped)}.");
         return false;
     }
 
