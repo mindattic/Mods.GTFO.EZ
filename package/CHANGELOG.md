@@ -1,5 +1,13 @@
 # Changelog
 
+## v20
+
+- Updated the BepInEx dependency to BepInExPack_GTFO 3.2.4.
+- GTFO.EZ.AbsurdItems is now a Thunderstore dependency, so it auto-installs alongside GTFO.EZ.
+- Experimental: the Tool select key, pressed again while Tool is already wielded, cycles your Sentry
+  Gun through four real vanilla fire-mode variants (burst, staggering auto, sniper semi, shotgun)
+  instead of just the one you loaded out with, so one player can have several turrets down at once.
+
 ## v19
 
 - **X redesigned into a quick-drop-all key:** each press now drops the next turret at wherever
