@@ -4,6 +4,7 @@
   "website_url": "https://github.com/mindattic/GTFO.EZ",
   "description": "2x HP & regen cap, no combat stamina penalty, -90% fall dmg, +50% ammo, 3x faster revives, short detection, no fog, fog clearing, instant sentries, bot sentry keys, ping any terminal, Ins/Del infinite ammo/HP. 530+ tunables.",
   "dependencies": [
-    "BepInEx-BepInExPack_GTFO-3.2.3"
+    "BepInEx-BepInExPack_GTFO-3.2.3",
+    "MindAttic-GtfoEZAbsurdItems-19.0.0"
   ]
 }
