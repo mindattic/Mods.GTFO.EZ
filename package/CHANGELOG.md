@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Ping Anywhere's cross-zone marker now shows for the whole team, not just whoever typed the PING:
+  the pinged item's key is sent to every player, whose game finds the same item and marks it for
+  the same time, with "Bob pinged KEY in ZONE_n" in the event log.
 - Shared team turret pool replaces Multi-Sentry Cycling and the fixed bots-first E: with your sentry
   in hand, 4 cycles every bot turret still available to the whole team, E places the selected one at
   your ghost, your own goes down last, and clients can place bots' turrets too - each asked of the

@@ -74,6 +74,8 @@ weapon, and every ranged weapon archetype plus sentries - all left at vanilla by
   the bots.
 - **Ping Anywhere** (on by default): `PING <KEY>` from any terminal reaches an item anywhere in
   the level, not just the terminal's own zone. Same-zone pings are left to the game's own PING.
+  A cross-zone ping is sent to the whole team (over GTFO-API): every player gets the same marker on
+  the same item for the same 10 seconds, and their event log says who pinged what.
   Technique credit: [BetterTerminal](https://github.com/AlexanderMakunin/BetterTerminal) by
   AlexanderMakunin (MIT).
 - **Shared team turret pool** (G.EZ-T120, on by default, part of Bot tool controls): with your own

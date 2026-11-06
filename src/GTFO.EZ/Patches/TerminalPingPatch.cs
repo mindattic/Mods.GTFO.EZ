@@ -1,7 +1,11 @@
 using System;
 using System.Collections.Generic;
+using System.Text;
+using GTFO.API;
 using HarmonyLib;
 using LevelGeneration;
+using MindAttic.GTFO.Shared;
+using SNetwork;
 using UnityEngine;
 
 namespace GTFO.EZ.Patches;
@@ -44,6 +48,7 @@ internal static class TerminalPing_EvaluateInput_Patch
             if (terminalZone == null || itemZone == null || terminalZone.Pointer == itemZone.Pointer) return true;
 
             TerminalPingAnywhere.Ping(item);
+            TerminalPingAnywhere.Broadcast(key);
             Write(__instance, $"PING {key}", $"Pinging {key} in ZONE_{itemZone.Alias} from this terminal.");
             Plugin.Logger.LogInfo($"Ping Anywhere: pinged {key} in ZONE_{itemZone.Alias} from a ZONE_{terminalZone.Alias} terminal.");
             return false;
@@ -78,7 +83,7 @@ internal static class TerminalPing_EvaluateInput_Patch
     // cross-zone PING silently fell back to vanilla's same-zone one. Terminal items (consumables,
     // containers, doors, generators...) are LG_GenericTerminalItem components, a concrete class, so
     // the key is matched against those instead. Prefab copies outside the level have no SpawnNode.
-    private static LG_GenericTerminalItem? FindItem(string key)
+    internal static LG_GenericTerminalItem? FindItem(string key)
     {
         foreach (var obj in Resources.FindObjectsOfTypeAll(Il2CppInterop.Runtime.Il2CppType.Of<LG_GenericTerminalItem>()))
         {
@@ -126,14 +131,22 @@ internal static class TerminalPing_EvaluateInput_Patch
 // The ping itself, and expiring it: one cross-zone ping at a time, shown for PingSeconds, then the
 // terminal-ping marker and locator beacon are taken down again (vanilla's own same-zone PING
 // handles its own; these were set outside its path, so nothing else would).
+//
+// G.EZ-T126: the marker used to go up on the typing player's GUI only. The pinged item's key (the same
+// on every machine - it comes from level generation) and the ping's duration are now broadcast over
+// GTFO-API, and every other player's game finds the item the same way FindItem does and puts up the
+// same marker for the same time, with "Bob pinged KEY in ZONE_n" in its event log.
 internal static class TerminalPingAnywhere
 {
     private const float PingSeconds = 10f;
+    private const string PingEvent = "MindAttic.GTFO.EZ.PingAnywhere";
+    private const int KeyBytes = PingMessage.Words * 8;
 
     private static uint? _activeId;
     private static float _expiresAt;
+    private static bool _registered;
 
-    internal static void Ping(LG_GenericTerminalItem item)
+    internal static void Ping(LG_GenericTerminalItem item, float seconds = PingSeconds)
     {
         Clear();
         var position = item.LocatorBeaconPosition;
@@ -142,11 +155,69 @@ internal static class TerminalPingAnywhere
         GuiManager.AttemptSetLocatorBeacon(true, position, id);
         GuiManager.AttemptSetTerminalPing(true, position, id);
         _activeId = id;
-        _expiresAt = Time.time + PingSeconds;
+        _expiresAt = Time.time + seconds;
+    }
+
+    // Tells every other player's game to put up the same marker for the same time.
+    internal static void Broadcast(string key)
+    {
+        try
+        {
+            Register();
+            var bytes = Encoding.ASCII.GetBytes(key);
+            if (bytes.Length > KeyBytes)
+            {
+                Plugin.Logger.LogWarning($"Ping Anywhere: {key} is too long to send to the team; only you see its marker.");
+                return;
+            }
+            NetworkAPI.InvokeEvent(PingEvent, new PingMessage(bytes, PingSeconds));
+        }
+        catch (Exception e)
+        {
+            Plugin.Logger.LogWarning($"Ping Anywhere: couldn't send the ping to the team. {e.Message}");
+        }
+    }
+
+    internal static void Register()
+    {
+        if (_registered) return;
+        _registered = true;
+        if (!NetworkAPI.IsEventRegistered(PingEvent)) RemoteEvents.Register<PingMessage>(PingEvent, OnPing);
+    }
+
+    // A teammate's cross-zone ping: the same item, by its key, marked for the sender's duration.
+    private static void OnPing(ulong sender, PingMessage message)
+    {
+        if (GameStateManager.CurrentStateName != eGameStateName.InLevel) return;
+        var key = message.Key();
+        if (key.Length == 0) return;
+        var item = TerminalPing_EvaluateInput_Patch.FindItem(key);
+        if (item == null)
+        {
+            Plugin.Logger.LogWarning($"Ping Anywhere: a teammate pinged {key}, but it isn't in this game's level.");
+            return;
+        }
+        var seconds = float.IsFinite(message.Seconds) ? Mathf.Clamp(message.Seconds, 1f, 60f) : PingSeconds;
+        Ping(item, seconds);
+        var zone = item.SpawnNode?.m_zone;
+        var text = $"{NameOf(sender)} pinged {key}{(zone != null ? $" in ZONE_{zone.Alias}" : "")}";
+        if (!MessageHelper.Show(text, MessageType.EventLog)) Plugin.Logger.LogInfo($"Ping Anywhere: {text}");
+    }
+
+    private static string NameOf(ulong lookup)
+    {
+        try
+        {
+            if (SNet.TryGetPlayer(lookup, out var player) && player != null && !string.IsNullOrWhiteSpace(player.NickName))
+                return player.NickName;
+        }
+        catch (Exception) { }
+        return "A teammate";
     }
 
     internal static void Tick()
     {
+        Register();
         if (_activeId.HasValue && Time.time >= _expiresAt) Clear();
     }
 
@@ -164,6 +235,38 @@ internal static class TerminalPingAnywhere
         {
             Plugin.Logger.LogWarning($"Ping Anywhere: couldn't clear the last ping's marker. {e.Message}");
         }
+    }
+}
+
+// GTFO-API sends structs as raw bytes, so the key travels as fixed ASCII words (48 characters, more
+// than any terminal item key), zero-padded.
+internal struct PingMessage
+{
+    internal const int Words = 6;
+
+    public ulong K0, K1, K2, K3, K4, K5;
+    public float Seconds;
+
+    internal PingMessage(byte[] key, float seconds)
+    {
+        var buffer = new byte[Words * 8];
+        Array.Copy(key, buffer, Math.Min(key.Length, buffer.Length));
+        K0 = BitConverter.ToUInt64(buffer, 0);
+        K1 = BitConverter.ToUInt64(buffer, 8);
+        K2 = BitConverter.ToUInt64(buffer, 16);
+        K3 = BitConverter.ToUInt64(buffer, 24);
+        K4 = BitConverter.ToUInt64(buffer, 32);
+        K5 = BitConverter.ToUInt64(buffer, 40);
+        Seconds = seconds;
+    }
+
+    internal readonly string Key()
+    {
+        var buffer = new byte[Words * 8];
+        var words = new[] { K0, K1, K2, K3, K4, K5 };
+        for (var i = 0; i < Words; i++) BitConverter.GetBytes(words[i]).CopyTo(buffer, i * 8);
+        var length = Array.IndexOf(buffer, (byte)0);
+        return Encoding.ASCII.GetString(buffer, 0, length < 0 ? buffer.Length : length).Trim();
     }
 }
 
