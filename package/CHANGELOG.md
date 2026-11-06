@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 21.0.0
 
 - **GTFO.EZ.AbsurdItems' level settings follow the host too (G.EZ-T128):** its kit loot and Loot Mix
   (`[Loot]`), the Frag Grenade / Plasma Grenade / Stim Pack switches and the grenade pickup counts used
