@@ -48,7 +48,7 @@ vanilla-vs-default table):
   basic Sentry Gun.
 - On first launch only, switches on four of the game's own control options (toggle comms menu,
   toggle sprint, toggle aim, stand on jump) - a one-time nudge, not an enforced setting.
-- **Insert** toggles infinite health and **Delete** infinite ammo (your own player only), each
+- **Insert** toggles infinite health and **Delete** infinite ammo (for the whole team, whoever presses it), each
   announced in the event log and always in the console too; both start off. GTFO.EZ, its Absurd
   companions and GTFO.CrashTestDummies all have these two keys, from one shared copy of the code
   (see Shared code below), and with several installed only one of them answers the keys, so a press

@@ -87,9 +87,9 @@ its own, each with its own config section and on/off switch:
 | Z | Recall every bot-placed tool (host only) and your own placed sentry, all at once |
 | 4 (Tool wielded, pressed again) | Cycle your Sentry Gun to the next of four fire-mode variants |
 
-**Infinite ammo and health** — **Insert** toggles infinite health (no damage to you; bots and
-teammates are unaffected) and **Delete** toggles infinite ammo (every gun and tool stays full,
-no reloads), each announced in the event log and always in the console too. Both start off. GTFO.EZ,
+**Infinite ammo and health** — **Insert** toggles infinite health (no damage to anyone on the team,
+bots included, whoever presses it) and **Delete** toggles infinite ammo (every gun, tool, placed sentry and
+grenade stays full for the whole team, no reloads), each announced in the event log and always in the console too. Both start off. GTFO.EZ,
 its Absurd companions and GTFO.CrashTestDummies all have the same two keys; with several installed,
 only one answers, so a press never toggles twice.
 
