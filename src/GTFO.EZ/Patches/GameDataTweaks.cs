@@ -70,6 +70,7 @@ internal static class GameDataInit_Initialize_Patch
         RunTweakCategory("enemy balance", ApplyEnemyBalanceTweaks);
         RunTweakCategory("fog", ApplyFogTweaks);
         RunTweakCategory("expedition balance", ApplyExpeditionBalanceTweaks);
+        RunTweakCategory("artifacts", ApplyArtifactTweaks);
         RunTweakCategory("loot", ApplyLootTweaks);
         RunTweakCategory("melee", ApplyMeleeTweaks);
         RunTweakCategory("weapon", ApplyWeaponTweaks);
@@ -287,6 +288,52 @@ internal static class GameDataInit_Initialize_Patch
 
     // ExpeditionBalanceDataBlock is the per-difficulty-tier resource/enemy/door budget table -
     // one block per tier (Easy/Normal/Hard/...), so every tier gets scaled by the same factor.
+    // G.EZ-T121: artifact amount and color odds. Per-layer color weights live on
+    // ArtifactDistributionDataBlock (Basic = Muted/blue, Specialized = Bold/green, Advanced =
+    // Aggressive/red); each expedition layer can also override them per zone
+    // (ArtifactLayerData.ArtifactZoneDistributions) and scales the amount (ArtifactAmountMulti).
+    // How many artifacts can spawn per segment/layer is ApplyExpeditionBalanceTweaks'.
+    private static void ApplyArtifactTweaks()
+    {
+        var even = Plugin.ArtifactEvenColors.Value;
+        var mutedMult = Plugin.ArtifactMutedWeightMultiplier.Value;
+        var boldMult = Plugin.ArtifactBoldWeightMultiplier.Value;
+        var aggressiveMult = Plugin.ArtifactAggressiveWeightMultiplier.Value;
+
+        foreach (var block in GameDataBlockBase<ArtifactDistributionDataBlock>.GetAllBlocks())
+        {
+            (block.BasicWeight, block.SpecializedWeight, block.AdvancedWeight) = ArtifactOdds.Rebalance(
+                block.BasicWeight, block.SpecializedWeight, block.AdvancedWeight, even, mutedMult, boldMult, aggressiveMult);
+        }
+
+        var amountMult = Plugin.ArtifactAmountMultiplier.Value;
+        foreach (var rundown in GameDataBlockBase<RundownDataBlock>.GetAllBlocks())
+        {
+            foreach (var tier in new[] { rundown.TierA, rundown.TierB, rundown.TierC, rundown.TierD, rundown.TierE })
+            {
+                if (tier == null) continue;
+                foreach (var expedition in tier)
+                {
+                    if (expedition == null) continue;
+                    foreach (var layer in new[] { expedition.MainLayerData, expedition.SecondaryLayerData, expedition.ThirdLayerData })
+                    {
+                        var artifacts = layer?.ArtifactData;
+                        if (artifacts == null) continue;
+                        artifacts.ArtifactAmountMulti *= amountMult;
+                        if (artifacts.ArtifactZoneDistributions == null) continue;
+                        foreach (var zone in artifacts.ArtifactZoneDistributions)
+                        {
+                            if (zone == null) continue;
+                            (zone.BasicArtifactWeight, zone.SpecializedArtifactWeight, zone.AdvancedArtifactWeight) = ArtifactOdds.Rebalance(
+                                zone.BasicArtifactWeight, zone.SpecializedArtifactWeight, zone.AdvancedArtifactWeight,
+                                even, mutedMult, boldMult, aggressiveMult);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     private static void ApplyExpeditionBalanceTweaks()
     {
         foreach (var block in GameDataBlockBase<ExpeditionBalanceDataBlock>.GetAllBlocks())

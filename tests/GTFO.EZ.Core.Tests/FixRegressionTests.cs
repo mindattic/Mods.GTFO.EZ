@@ -124,3 +124,23 @@ public class PluginWiringTests
     public void SentryPlacement_UsesTeamSentryRules() =>
         Assert.That(Src(Path.Combine("Patches", "DeployPickupHotkeys.cs")), Does.Contain("TeamSentryRules.Decide("));
 }
+
+// G.EZ-T121: artifact colors. Vanilla-like odds (blue far ahead) become an even split with the same total.
+[TestFixture]
+public class ArtifactOddsTests
+{
+    [Test]
+    public void Even_SplitsTheTotalEquallyAcrossColors()
+    {
+        var (m, b, a) = ArtifactOdds.Rebalance(8f, 3f, 1f, even: true, 1f, 1f, 1f);
+        Assert.That((m, b, a), Is.EqualTo((4f, 4f, 4f)));
+    }
+
+    [Test]
+    public void Off_KeepsVanillaWeights() =>
+        Assert.That(ArtifactOdds.Rebalance(8f, 3f, 1f, even: false, 1f, 1f, 1f), Is.EqualTo((8f, 3f, 1f)));
+
+    [Test]
+    public void ColorMultipliers_ApplyAfterEvening() =>
+        Assert.That(ArtifactOdds.Rebalance(8f, 3f, 1f, true, 1f, 1f, 2f), Is.EqualTo((4f, 4f, 8f)));
+}

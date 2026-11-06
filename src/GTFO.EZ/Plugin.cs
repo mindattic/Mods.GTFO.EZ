@@ -166,6 +166,12 @@ public class Plugin : BasePlugin
     internal static ConfigEntry<float> LevelGenVoxelCoverageRandomnessMultiplier = null!;
     internal static ConfigEntry<float> ArtifactsPerSegmentMultiplier = null!;
     internal static ConfigEntry<float> ArtifactsPerLayerMultiplier = null!;
+    // G.EZ-T121 - see GameDataTweaks.ApplyArtifactTweaks.
+    internal static ConfigEntry<float> ArtifactAmountMultiplier = null!;
+    internal static ConfigEntry<bool> ArtifactEvenColors = null!;
+    internal static ConfigEntry<float> ArtifactMutedWeightMultiplier = null!;
+    internal static ConfigEntry<float> ArtifactBoldWeightMultiplier = null!;
+    internal static ConfigEntry<float> ArtifactAggressiveWeightMultiplier = null!;
 
     internal static ConfigEntry<float> WeakDoor4x4HealthMultiplier = null!;
     internal static ConfigEntry<float> WeakDoor8x4HealthMultiplier = null!;
@@ -268,6 +274,8 @@ public class Plugin : BasePlugin
         (3, () => ReviveDurationMultiplier, 1.0f),
         (4, () => HealthRegenCapMultiplier, 0.5f),               // v11
         (5, () => FogRepellerSpawnWeightMultiplier, 1.0f),
+        (7, () => ArtifactsPerSegmentMultiplier, 1.0f),          // G.EZ-T121: more artifacts
+        (7, () => ArtifactsPerLayerMultiplier, 1.0f),
     };
 
     // Same idea for on/off settings. Fog Clearing shipped on (G.EZ-T39), but its always-on sphere
@@ -578,11 +586,29 @@ public class Plugin : BasePlugin
         LevelGenVoxelCoverageRandomnessMultiplier = BindNonNegative("Expedition Level Gen", "Voxel Coverage Area Randomness Multiplier", 1.0f,
             "Multiplies the randomness factor in that same level-generation coverage scoring. Left at vanilla (1.0) by default.");
 
-        ArtifactsPerSegmentMultiplier = BindNonNegative("Expedition Level Gen", "Artifacts Per Segment Multiplier", 1.0f,
-            "Multiplies how many artifacts can spawn per level segment. Left at vanilla (1.0) by default.");
+        ArtifactsPerSegmentMultiplier = BindNonNegative("Expedition Level Gen", "Artifacts Per Segment Multiplier", 2.0f,
+            "Multiplies how many artifacts can spawn per level segment. Default 2.0 (double vanilla).");
 
-        ArtifactsPerLayerMultiplier = BindNonNegative("Expedition Level Gen", "Artifacts Per Layer Multiplier", 1.0f,
-            "Multiplies how many artifacts can spawn per level layer. Left at vanilla (1.0) by default.");
+        ArtifactsPerLayerMultiplier = BindNonNegative("Expedition Level Gen", "Artifacts Per Layer Multiplier", 2.0f,
+            "Multiplies how many artifacts can spawn per level layer. Default 2.0 (double vanilla).");
+
+        // Section "Artifact Spawns", not "Artifacts" - GTFO.EZ.AbsurdItems' artifact buffs used that name.
+        ArtifactAmountMultiplier = BindNonNegative("Artifact Spawns", "Artifact Amount Multiplier", 2.0f,
+            "Multiplies each expedition layer's own artifact amount. Default 2.0 (double vanilla), alongside the " +
+            "per-segment/per-layer limits in Expedition Level Gen, which are raised to match.");
+
+        ArtifactEvenColors = Config.Bind("Artifact Spawns", "Even Artifact Colors", true,
+            "Vanilla makes Muted (blue) artifacts far more common than Bold (green) and Aggressive (red). On (default): " +
+            "the three colors are equally likely, with the same overall odds. Off: vanilla odds.");
+
+        ArtifactMutedWeightMultiplier = BindNonNegative("Artifact Spawns", "Muted (Blue) Weight Multiplier", 1.0f,
+            "Multiplies how likely an artifact is Muted (blue), applied after Even Artifact Colors. Default 1.0.");
+
+        ArtifactBoldWeightMultiplier = BindNonNegative("Artifact Spawns", "Bold (Green) Weight Multiplier", 1.0f,
+            "Multiplies how likely an artifact is Bold (green), applied after Even Artifact Colors. Default 1.0.");
+
+        ArtifactAggressiveWeightMultiplier = BindNonNegative("Artifact Spawns", "Aggressive (Red) Weight Multiplier", 1.0f,
+            "Multiplies how likely an artifact is Aggressive (red), applied after Even Artifact Colors. Default 1.0.");
 
         WeakDoor4x4HealthMultiplier = BindNonNegative("Expedition Doors", "Weak Door 4x4 Health Multiplier", 1.0f,
             "Multiplies the health of small (4x4) weak doors. Left at vanilla (1.0) by default.");
