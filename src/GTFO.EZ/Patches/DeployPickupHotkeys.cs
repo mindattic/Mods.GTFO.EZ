@@ -23,6 +23,7 @@ namespace GTFO.EZ.Patches;
 // decompiling alone - every call here is guarded so a failure logs and moves on instead of breaking
 // the mod.
 [HarmonyPatch(typeof(Dam_PlayerDamageLocal), nameof(Dam_PlayerDamageLocal.Update))]
+[HarmonyBefore("MindAttic.GTFO.EZ.AbsurdItems")] // G.EZ-T119: explicit order on a method AbsurdItems also patches (AGENTS.md golden rule); Before matches its After(GTFO.EZ) convention, so no cycle (cf. G.EZ-T108)
 internal static class DeployPickupHotkeys_Update_Patch
 {
     [HarmonyPostfix]

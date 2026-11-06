@@ -38,6 +38,19 @@ public class ConfigMigrationRulesTests
     }
 }
 
+// G.EZ-T119: a huge multiplier saturates instead of wrapping to a negative stat.
+[TestFixture]
+public class BalanceMathOverflowTests
+{
+    [Test]
+    public void ScaleIntUp_HugeMultiplier_SaturatesNotNegative() =>
+        Assert.That(BalanceMath.ScaleIntUp(460, 1e7f), Is.EqualTo(int.MaxValue));
+
+    [Test]
+    public void ScaleIntDown_HugeMultiplier_SaturatesNotNegative() =>
+        Assert.That(BalanceMath.ScaleIntDown(460, 1e7f), Is.EqualTo(int.MaxValue));
+}
+
 [TestFixture]
 public class TeamSentryRulesTests
 {

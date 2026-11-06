@@ -12,6 +12,7 @@ namespace GTFO.EZ.Patches;
 // longer you're in a level, from Start Range to Max Range over Ramp Seconds. Off by default since
 // G.EZ-T115: that fog is what keeps levels dark, and with it carved away no flashlight was needed.
 [HarmonyPatch(typeof(Dam_PlayerDamageLocal))]
+[HarmonyBefore("MindAttic.GTFO.EZ.AbsurdItems")] // G.EZ-T119: explicit order on a method AbsurdItems also patches (AGENTS.md golden rule); Before matches its After(GTFO.EZ) convention, so no cycle (cf. G.EZ-T108)
 internal static class FogClearPulse_Patch
 {
     [HarmonyPatch(nameof(Dam_PlayerDamageLocal.Update))]

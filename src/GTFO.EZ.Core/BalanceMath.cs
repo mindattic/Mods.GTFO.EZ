@@ -12,9 +12,14 @@ public static class BalanceMath
     // Integer stats always round in the player's favor rather than to nearest: a stat where more
     // helps the player (ammo, clip size, loot) rounds up, one where fewer helps (enemy caps, spread)
     // rounds down. 3 x 1.5 clip = 5 rounds; 3 x 1.5 patrol groups = 4.
-    public static int ScaleIntUp(int value, float multiplier) => (int)Math.Ceiling(Product(value, multiplier));
+    public static int ScaleIntUp(int value, float multiplier) => ToInt(Math.Ceiling(Product(value, multiplier)));
 
-    public static int ScaleIntDown(int value, float multiplier) => (int)Math.Floor(Product(value, multiplier));
+    public static int ScaleIntDown(int value, float multiplier) => ToInt(Math.Floor(Product(value, multiplier)));
+
+    // G.EZ-T119: an unchecked cast of a product past int.MaxValue (e.g. a 1e7 ammo multiplier on a
+    // ~460-round cap) wraps to int.MinValue - a negative ammo cap. Saturate instead.
+    private static int ToInt(double value) =>
+        value >= int.MaxValue ? int.MaxValue : value <= int.MinValue ? int.MinValue : (int)value;
 
     // Multipliers like 0.3 aren't exact in binary, so 10 x 0.3 lands on 3.0000001 and would
     // ceiling to 4; trimming to 4 decimals keeps a whole-number product whole.

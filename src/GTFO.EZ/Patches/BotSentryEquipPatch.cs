@@ -47,6 +47,9 @@ internal static class BotSentryEquipPatch
     private static void CopyGearToBot_Postfix(SNet_Player bot)
     {
         if (!Plugin.BotsAlwaysEquipSentryGun.Value) return;
+        // G.EZ-T119: a bot taking over a player whose sentry is already down keeps that deployed one -
+        // re-equipping would hand it a fresh undeployed sentry, a second turret for E/X to place.
+        if (PlayerBackpackManager.TryGetBackpack(bot, out var backpack) && backpack != null && backpack.IsDeployed(InventorySlot.GearClass)) return;
         var gear = GetSentryGear();
         if (gear != null) PlayerBackpackManager.EquipBotGear(bot, gear);
     }

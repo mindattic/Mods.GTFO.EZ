@@ -168,6 +168,7 @@ internal static class TerminalPingAnywhere
 }
 
 [HarmonyPatch(typeof(Dam_PlayerDamageLocal))]
+[HarmonyBefore("MindAttic.GTFO.EZ.AbsurdItems")] // G.EZ-T119: explicit order on a method AbsurdItems also patches (AGENTS.md golden rule); Before matches its After(GTFO.EZ) convention, so no cycle (cf. G.EZ-T108)
 internal static class TerminalPingAnywhere_Tick_Patch
 {
     [HarmonyPatch(nameof(Dam_PlayerDamageLocal.Update))]
