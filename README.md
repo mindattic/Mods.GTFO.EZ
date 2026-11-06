@@ -35,7 +35,7 @@ vanilla-vs-default table):
 - Consumable loot: glow sticks, lock melters, C-foam, trip mines and fog repellers are disabled by
   default, so their share goes to the rest. Consumables as kits moved to
   [GTFO.EZ.AbsurdItems](https://github.com/mindattic/GTFO.EZ.AbsurdItems): with its *Consumables Are
-  Kits* on (its Loot Mix adds Hand Grenades and Stim Packs to the kits), that mod decides the
+  Kits* on (its Loot Mix adds Frag and Plasma Grenades and Stim Packs to the kits), that mod decides the
   consumable loot, replacing this mod's per-item spawn odds; if its kits don't fill the tables,
   those odds still apply.
 - Fog: the fog's own enabled flag is switched off. An optional silent fog-clearing sphere (the Fog
@@ -233,7 +233,7 @@ extra. Clone with `--recurse-submodules`, or run `git submodule update --init` i
 - `MessageHelper.cs` - on-screen messages for the local player, wherever they fit:
   `MessageHelper.Show(text, MessageType.Warden | EventLog | Center | Subtitle, seconds)`. Compiled by GTFO.EZ, its Absurd companions and GTFO.CrashTestDummies.
 - `KitLoot.cs` - kits as consumables. Compiled by GTFO.EZ.AbsurdItems only (its *Consumables Are
-  Kits*, with Loot Mix's Hand Grenades and Stim Packs as extras). GTFO.EZ doesn't use it, so
+  Kits*, with Loot Mix's Frag/Plasma Grenades and Stim Packs as extras). GTFO.EZ doesn't use it, so
   `GTFO.EZ.csproj` leaves it out of this mod's build.
 - `RemoteEvents.cs` - `RemoteEvents.Register<T>(name, handler)`, a GTFO-API network event whose
   handler can't throw (an exception escaping one would hand GTFO-API's packet to the game's own
@@ -298,7 +298,7 @@ scheme at v17. Current release: v20.
   re-running GTFO.EZ.AbsurdItems' kit-loot postfix (found by owner and type name among GameDataInit's
   patches) gives the same tables as at startup; and that the event log is visible in the lobby (every
   notice is shown again when the level starts). GTFO.EZ.AbsurdItems' level settings (kit loot, Loot
-  Mix, Hand Grenade pickup counts) are fingerprinted and warned about but still come from each
+  Mix, Frag/Plasma Grenade pickup counts) are fingerprinted and warned about but still come from each
   player's own config.
 - Fog clearing is confirmed in play; its density is read from the vanilla
   Fog Repeller prefab at runtime (logged), with a Density Override if that doesn't clear fog.
@@ -331,6 +331,6 @@ own End toggle to carry them on a serious run),
 [GTFO.EZ.AbsurdMoves](https://github.com/mindattic/GTFO.EZ.AbsurdMoves) (new movement abilities,
 gated behind its own Home toggle),
 [GTFO.EZ.AbsurdItems](https://github.com/mindattic/GTFO.EZ.AbsurdItems) (artifact buffs and glow,
-the Hand Grenade and Stim Pack, consumables as kits, and breadcrumb markers),
+the Frag and Plasma Grenades and Stim Pack, consumables as kits, and breadcrumb markers),
 [GTFO.CrashTestDummies](https://github.com/mindattic/GTFO.CrashTestDummies), and
 [GTFO.SkipDrop](https://github.com/mindattic/GTFO.SkipDrop).

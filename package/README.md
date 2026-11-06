@@ -204,7 +204,7 @@ expect it to matter more for players who want to go deeper than the defaults, no
 a spawn slot, not *how many* spawn (that's the `Consumable Spawn Multiplier` above). Setting one to
 0 removes that item, and its share goes to the rest; a loot table with every item disabled spawns
 nothing. GTFO.EZ.AbsurdItems' *Consumables Are Kits* replaces the items with a few small health, tool
-and ammo kits (plus Hand Grenades and Stim Packs with its Loot Mix on), and these odds with them;
+and ammo kits (plus Frag/Plasma Grenades and Stim Packs with its Loot Mix on), and these odds with them;
 whenever its kits don't fill the tables, these odds still apply.
 
 | Stat | Vanilla | Default |
@@ -521,7 +521,7 @@ without GTFO.EZ installed, too.
   you join, your game and the host's compare a fingerprint of every GTFO.* mod's level settings and
   added items/weapons, and anything that differs is named in the event log (the host's names you).
   GTFO.EZ.AbsurdItems' own loot settings don't follow the host yet - a difference there is only
-  warned about - so keep its `[Loot]` and Hand Grenade pickup counts the same as the host's.
+  warned about - so keep its `[Loot]` and Frag/Plasma Grenade pickup counts the same as the host's.
 - **Turning a mod off:** every GTFO.* mod's `.cfg` starts with `[0. Mod] Enabled`; set it to
   `false` and that mod loads nothing, and the others treat it as not installed.
 - **GTFO.EZ.AbsurdMoves:** compatible - the dash that used to be in this mod lives there now, as its

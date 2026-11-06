@@ -98,8 +98,9 @@ internal static class ModFingerprints
     private const string AbsurdItemsGuid = "MindAttic.GTFO.EZ.AbsurdItems";
     private const string AbsurdWeaponsGuid = "MindAttic.GTFO.EZ.AbsurdWeapons";
 
-    // AbsurdItems' injected items: the Hand Grenade and the Stim Pack (GAI-T39: always registered).
-    private static readonly uint[] AbsurdItemsItems = { 1203, 1204 };
+    // AbsurdItems' injected items: the Frag Grenade (1203, the old Hand Grenade's id), the Stim Pack
+    // and the Plasma Grenade (1205, GAI-T37) - all always registered (GAI-T39).
+    private static readonly uint[] AbsurdItemsItems = { 1203, 1204, 1205 };
 
     // AbsurdWeapons' gear categories (melee 100x, guns 11xx, the Victory Banner tool 1202;
     // G.AWPN-T236: always registered).
@@ -119,10 +120,12 @@ internal static class ModFingerprints
     }
 
     // AbsurdItems' settings that shape a level: the kit loot and Loot Mix ([Loot], all of it), which
-    // of its items may spawn, and how many Hand Grenades a pickup holds (rolled from the level seed).
+    // of its items may spawn, and how many grenades a pickup holds (rolled from the level seed).
+    // GAI-T37 split the Hand Grenade into the Frag and Plasma Grenades, each with its own section.
     private static bool AbsurdItemsLevelSetting(ConfigDefinition d) =>
         d.Section == "Loot"
-        || (d.Section == "Hand Grenade" && d.Key is "Hand Grenade Enabled" or "PickupCountMin" or "PickupCountMax")
+        || (d.Section is "Frag Grenade" or "Plasma Grenade" or "Hand Grenade"
+            && d.Key is "Frag Grenade Enabled" or "Plasma Grenade Enabled" or "Hand Grenade Enabled" or "PickupCountMin" or "PickupCountMax")
         || (d.Section == "Stim Pack" && d.Key == "Stim Pack Enabled");
 
     private static ModFingerprint Other(string name, string guid, Func<ConfigDefinition, bool> isLevel, Func<ulong> mask)
