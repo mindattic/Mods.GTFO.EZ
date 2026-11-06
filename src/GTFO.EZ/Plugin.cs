@@ -11,6 +11,7 @@ namespace GTFO.EZ;
 
 [BepInPlugin(GUID, NAME, VERSION)]
 [BepInProcess("GTFO.exe")]
+[BepInDependency("dev.gtfomodding.gtfo-api")]
 public class Plugin : BasePlugin
 {
     public const string GUID = "MindAttic.GTFO.EZ";
@@ -244,8 +245,14 @@ public class Plugin : BasePlugin
         BindConfig();
         ApplyConfigDefaultMigrations();
 
+        // G.EZ-T125: before the patches, so the first GameDataInit pass already knows which settings
+        // shape the level (and resolves them through the host-override lookup).
+        Patches.LevelSettings.Init(Config);
         new Harmony(GUID).PatchAll();
         Patches.GameDataInit_EmptyDisabledLoot_Patch.Apply();
+        Patches.LevelSettingsSync.Init();
+        Il2CppInterop.Runtime.Injection.ClassInjector.RegisterTypeInIl2Cpp<Patches.LevelSettingsSyncDriver>();
+        AddComponent<Patches.LevelSettingsSyncDriver>();
 
         Logger.LogInfo($"{NAME} v{VERSION} loaded.");
     }

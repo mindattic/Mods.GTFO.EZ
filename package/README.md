@@ -513,6 +513,15 @@ without GTFO.EZ installed, too.
   this mod live there now, with the same settings, along with the Hand Grenade, Stim Pack and Loot Mix
   from GTFO.EZ.AbsurdWeapons. Its kit loot is applied after this mod's data changes and replaces this
   mod's consumable spawn odds along with the items.
+- **Multiplayer:** the host's level settings win. In someone else's lobby, every setting in
+  `[Expedition Resources]` (except Full Ammo On Drop), `[Expedition Enemies]`, `[Expedition Level
+  Gen]`, `[Expedition Doors]`, `[Artifact Spawns]` and `[Loot]` uses the host's value for as long as
+  you're in that lobby - the level is built the same on every machine - and your own `.cfg` is left
+  as it is. Everything else (your health, stamina, movement, weapons, controls) stays your own. When
+  you join, your game and the host's compare a fingerprint of every GTFO.* mod's level settings and
+  added items/weapons, and anything that differs is named in the event log (the host's names you).
+  GTFO.EZ.AbsurdItems' own loot settings don't follow the host yet - a difference there is only
+  warned about - so keep its `[Loot]` and Hand Grenade pickup counts the same as the host's.
 - **Turning a mod off:** every GTFO.* mod's `.cfg` starts with `[0. Mod] Enabled`; set it to
   `false` and that mod loads nothing, and the others treat it as not installed.
 - **GTFO.EZ.AbsurdMoves:** compatible - the dash that used to be in this mod lives there now, as its
@@ -565,6 +574,10 @@ others' prior work:
 
 ### Unreleased
 
+- **Level settings follow the host**: in someone else's lobby, every setting that shapes the level
+  (Expedition Resources/Enemies/Level Gen/Doors, Artifact Spawns, Loot) uses the host's value, so
+  everyone builds the same level; your `.cfg` isn't touched and your own health, stamina, weapons and
+  the rest stay yours. Differences in any GTFO.* mod's level settings are named in the event log.
 - **Team turret counts are accurate for every player**: placements, failed placements and Z recalls
   show in everyone's event log with who did it and how many bot turrets are left; a client with no
   fresh word from the host shows "Team turret pool unavailable (host)" and holds its own turret

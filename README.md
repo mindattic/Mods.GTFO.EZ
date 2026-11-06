@@ -262,7 +262,8 @@ scheme at v17. Current release: v20.
 - **Private:** Import the zip from `dist/` as a local mod in your mod manager, then
   `Settings -> Profile -> Export profile as code` and send friends the code.
 - **Public:** Published on Thunderstore at https://thunderstore.io/c/gtfo/p/MindAttic/GtfoEZ/.
-  Everyone in a lobby needs the identical mod and config.
+  Everyone in a lobby needs the identical mods. Level-shaping settings follow the host (G.EZ-T125);
+  other settings are each player's own.
 
 ## Limitations
 
@@ -288,6 +289,17 @@ scheme at v17. Current release: v20.
   whether the bot AI's own recall (PlayerBotActionGatherDeployables.PickUpItem) clears the bot's
   deployed flag by itself - the interop stubs don't say, so half a second after Z the host clears it
   only for a bot whose turret is no longer standing (logged when it has to).
+- The level-settings sync (G.EZ-T125) builds and its fingerprint/wire/decision logic passes headless
+  tests, but none of it has run in a game yet. Unconfirmed in play: that GTFO-API's `LevelAPI.OnBuildStart`
+  fires before level generation reads the ExpeditionBalance/artifact/consumable datablocks (the client
+  applies the host's values the moment they arrive in the lobby - a few seconds after joining - and
+  checks again at build start, but a late joiner whose level builds before the host's answer arrives
+  gets the warning instead); that the interop properties restore cleanly by reflection; that
+  re-running GTFO.EZ.AbsurdItems' kit-loot postfix (found by owner and type name among GameDataInit's
+  patches) gives the same tables as at startup; and that the event log is visible in the lobby (every
+  notice is shown again when the level starts). GTFO.EZ.AbsurdItems' level settings (kit loot, Loot
+  Mix, Hand Grenade pickup counts) are fingerprinted and warned about but still come from each
+  player's own config.
 - Fog clearing is confirmed in play; its density is read from the vanilla
   Fog Repeller prefab at runtime (logged), with a Density Override if that doesn't clear fog.
 - Datablock patches can only be verified by launching the game; they have no automated test

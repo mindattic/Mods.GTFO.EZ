@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+- **Level settings follow the host (G.EZ-T125):** every game builds the level from its own data, and
+  GTFO.EZ shaped that data from each player's own `.cfg` - so a host and a client with different
+  Expedition Resources/Enemies/Level Gen/Doors, Artifact Spawns or Loot settings generated different
+  levels. In someone else's lobby your game now uses the host's values for every one of those
+  settings (without touching your `.cfg`): it keeps the vanilla values those settings scale, puts
+  them back and applies the host's before the level is built (GTFO.EZ.AbsurdItems' kit loot is run
+  again after it, as at startup). Your own health, stamina, movement, weapons and the rest stay
+  yours. Each game also sends the host a fingerprint of every GTFO.* mod's level settings and added
+  items/weapons; anything that differs is named in the event log on both sides (the host sees which
+  player), and a client that never hears from the host's GTFO.EZ is warned as the level starts
+  building. Your own level settings now also apply from the next level when changed while the game
+  runs, instead of on restart.
+
 - Team turret counts are accurate for every player: placements, failed placements and Z recalls
   show in everyone's event log with who did it and how many bot turrets are left; a client with no
   fresh word from the host shows "Team turret pool unavailable (host)" and holds its own turret

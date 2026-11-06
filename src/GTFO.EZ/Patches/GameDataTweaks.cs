@@ -69,13 +69,78 @@ internal static class GameDataInit_Initialize_Patch
         RunTweakCategory("detection", ApplyDetectionTweaks);
         RunTweakCategory("enemy balance", ApplyEnemyBalanceTweaks);
         RunTweakCategory("fog", ApplyFogTweaks);
-        RunTweakCategory("expedition balance", ApplyExpeditionBalanceTweaks);
-        RunTweakCategory("artifacts", ApplyArtifactTweaks);
-        RunTweakCategory("loot", ApplyLootTweaks);
+        // G.EZ-T125: the level-shaping categories read LevelSettings.Effective (the host's values in
+        // someone else's lobby), and the vanilla fields they touch are snapshotted first so a client
+        // can put them back and apply the host's values without compounding.
+        RunTweakCategory("level snapshot", () => levelSnapshot = LevelBlockSnapshot.Capture());
+        RunLevelCategories();
         RunTweakCategory("melee", ApplyMeleeTweaks);
         RunTweakCategory("weapon", ApplyWeaponTweaks);
         RunTweakCategory("re-apply guard", RememberApplied);
         Plugin.Logger.LogInfo("GTFO.EZ tweaks applied. Goo goo. Gah gah.");
+    }
+
+    // ── G.EZ-T125: level settings follow the host ──────────────────────────────────────────────
+    // A real tweak pass (not one the re-apply guard skipped) snapshots the vanilla level fields.
+    // ReapplyLevelTweaks puts them back and runs only the level categories again with the values
+    // wanted now - never the player/weapon ones, and never over already-scaled values. The player
+    // block (the G.EZ-T109 witness) isn't touched, so a later GameDataInit re-run is still recognized.
+    private static LevelBlockSnapshot? levelSnapshot;
+
+    internal static bool LevelSnapshotTaken => levelSnapshot != null;
+
+    // The LevelSettings signature the level datablocks were last tweaked with.
+    internal static ulong AppliedLevelSignature { get; private set; }
+
+    private static void RunLevelCategories()
+    {
+        var signature = LevelSettings.EffectiveSignature();
+        RunTweakCategory("expedition balance", ApplyExpeditionBalanceTweaks);
+        RunTweakCategory("artifacts", ApplyArtifactTweaks);
+        RunTweakCategory("loot", ApplyLootTweaks);
+        AppliedLevelSignature = signature;
+    }
+
+    // Everything downstream of these blocks runs again too: GTFO.EZ.AbsurdItems' kit loot refills the
+    // consumable tables (and sizes them from the expedition balance budget), then the all-disabled
+    // tables are emptied - the same order as at GameDataInit.
+    internal static void ReapplyLevelTweaks(string what)
+    {
+        if (levelSnapshot == null) return;
+        try
+        {
+            levelSnapshot.Restore();
+        }
+        catch (Exception e)
+        {
+            Plugin.Logger.LogError($"GTFO.EZ couldn't restore the vanilla level datablocks - keeping the level tweaks as they are: {e}");
+            AppliedLevelSignature = LevelSettings.EffectiveSignature(); // don't retry every second
+            return;
+        }
+        RunLevelCategories();
+        RunTweakCategory("GTFO.EZ.AbsurdItems kit loot", RerunAbsurdItemsKitLoot);
+        GameDataInit_EmptyDisabledLoot_Patch.Postfix();
+        Plugin.Logger.LogInfo($"GTFO.EZ: level tweaks re-applied with {what}.");
+    }
+
+    private const string AbsurdItemsGuid = "MindAttic.GTFO.EZ.AbsurdItems";
+
+    // AbsurdItems' kit-loot postfix (ConsumablesAreKits.Apply), found among GameDataInit.Initialize's
+    // patches by owner and type - nothing to do when AbsurdItems isn't installed or has no such patch.
+    private static void RerunAbsurdItemsKitLoot()
+    {
+        var info = Harmony.GetPatchInfo(AccessTools.Method(typeof(GameDataInit), nameof(GameDataInit.Initialize)));
+        if (info == null) return;
+        var ran = false;
+        foreach (var patch in info.Postfixes)
+        {
+            if (patch.owner != AbsurdItemsGuid || patch.PatchMethod.DeclaringType?.Name != "ConsumablesAreKits") continue;
+            if (patch.PatchMethod.GetParameters().Length != 0) continue;
+            patch.PatchMethod.Invoke(null, null);
+            ran = true;
+        }
+        if (!ran && MindAttic.GTFO.Shared.SharedOwner.IsActive(AbsurdItemsGuid))
+            Plugin.Logger.LogWarning("GTFO.EZ couldn't find GTFO.EZ.AbsurdItems' kit loot to run again - this game's consumable tables may not match the host's.");
     }
 
     private static void RunTweakCategory(string name, Action apply)
@@ -247,7 +312,7 @@ internal static class GameDataInit_Initialize_Patch
     // never touched here. Kits as consumable loot live in GTFO.EZ.AbsurdItems now; it runs after this.
     private static void ApplyLootTweaks()
     {
-        var consumableMult = Plugin.ConsumableSpawnMultiplier.Value;
+        var consumableMult = LevelSettings.Effective(Plugin.ConsumableSpawnMultiplier);
         foreach (var block in GameDataBlockBase<ConsumableDistributionDataBlock>.GetAllBlocks())
             block.SpawnsPerZone = ScaleUp(block.SpawnsPerZone, consumableMult);
 
@@ -265,7 +330,7 @@ internal static class GameDataInit_Initialize_Patch
                 if (ConsumableWeightMultipliers.TryGetValue(entry.ItemID, out var getMultiplier)) entry.Weight *= getMultiplier();
         }
 
-        var bigPickupMult = Plugin.BigPickupSpawnMultiplier.Value;
+        var bigPickupMult = LevelSettings.Effective(Plugin.BigPickupSpawnMultiplier);
         foreach (var block in GameDataBlockBase<BigPickupDistributionDataBlock>.GetAllBlocks())
         {
             block.SpawnsPerZone = ScaleUp(block.SpawnsPerZone, bigPickupMult);
@@ -276,14 +341,14 @@ internal static class GameDataInit_Initialize_Patch
     // ConsumableDistributionDataBlock.SpawnData at runtime - not documented anywhere official.
     private static readonly Dictionary<uint, Func<float>> ConsumableWeightMultipliers = new()
     {
-        { 30, () => Plugin.FlashlightItemSpawnWeightMultiplier.Value },   // Long Range Flashlight
-        { 114, () => Plugin.GlowstickSpawnWeightMultiplier.Value },        // Glow Stick
-        { 174, () => Plugin.GlowstickSpawnWeightMultiplier.Value },        // Glow Stick Yellow
-        { 115, () => Plugin.CFoamGrenadeSpawnWeightMultiplier.Value },     // C-Foam Grenade
-        { 117, () => Plugin.FogRepellerSpawnWeightMultiplier.Value },      // Fog Repeller
-        { 116, () => Plugin.LockMelterSpawnWeightMultiplier.Value },       // Lock Melter
-        { 139, () => Plugin.ExplosiveTripMineSpawnWeightMultiplier.Value }, // Explosive Trip Mine
-        { 144, () => Plugin.CFoamTripmineSpawnWeightMultiplier.Value },    // C-Foam Tripmine
+        { 30, () => LevelSettings.Effective(Plugin.FlashlightItemSpawnWeightMultiplier) },   // Long Range Flashlight
+        { 114, () => LevelSettings.Effective(Plugin.GlowstickSpawnWeightMultiplier) },        // Glow Stick
+        { 174, () => LevelSettings.Effective(Plugin.GlowstickSpawnWeightMultiplier) },        // Glow Stick Yellow
+        { 115, () => LevelSettings.Effective(Plugin.CFoamGrenadeSpawnWeightMultiplier) },     // C-Foam Grenade
+        { 117, () => LevelSettings.Effective(Plugin.FogRepellerSpawnWeightMultiplier) },      // Fog Repeller
+        { 116, () => LevelSettings.Effective(Plugin.LockMelterSpawnWeightMultiplier) },       // Lock Melter
+        { 139, () => LevelSettings.Effective(Plugin.ExplosiveTripMineSpawnWeightMultiplier) }, // Explosive Trip Mine
+        { 144, () => LevelSettings.Effective(Plugin.CFoamTripmineSpawnWeightMultiplier) },    // C-Foam Tripmine
     };
 
     // ExpeditionBalanceDataBlock is the per-difficulty-tier resource/enemy/door budget table -
@@ -295,10 +360,10 @@ internal static class GameDataInit_Initialize_Patch
     // How many artifacts can spawn per segment/layer is ApplyExpeditionBalanceTweaks'.
     private static void ApplyArtifactTweaks()
     {
-        var even = Plugin.ArtifactEvenColors.Value;
-        var mutedMult = Plugin.ArtifactMutedWeightMultiplier.Value;
-        var boldMult = Plugin.ArtifactBoldWeightMultiplier.Value;
-        var aggressiveMult = Plugin.ArtifactAggressiveWeightMultiplier.Value;
+        var even = LevelSettings.Effective(Plugin.ArtifactEvenColors);
+        var mutedMult = LevelSettings.Effective(Plugin.ArtifactMutedWeightMultiplier);
+        var boldMult = LevelSettings.Effective(Plugin.ArtifactBoldWeightMultiplier);
+        var aggressiveMult = LevelSettings.Effective(Plugin.ArtifactAggressiveWeightMultiplier);
 
         foreach (var block in GameDataBlockBase<ArtifactDistributionDataBlock>.GetAllBlocks())
         {
@@ -306,7 +371,7 @@ internal static class GameDataInit_Initialize_Patch
                 block.BasicWeight, block.SpecializedWeight, block.AdvancedWeight, even, mutedMult, boldMult, aggressiveMult);
         }
 
-        var amountMult = Plugin.ArtifactAmountMultiplier.Value;
+        var amountMult = LevelSettings.Effective(Plugin.ArtifactAmountMultiplier);
         foreach (var rundown in GameDataBlockBase<RundownDataBlock>.GetAllBlocks())
         {
             foreach (var tier in new[] { rundown.TierA, rundown.TierB, rundown.TierC, rundown.TierD, rundown.TierE })
@@ -338,72 +403,72 @@ internal static class GameDataInit_Initialize_Patch
     {
         foreach (var block in GameDataBlockBase<ExpeditionBalanceDataBlock>.GetAllBlocks())
         {
-            block.HealthPerZone *= Plugin.HealthPackResourceMultiplier.Value;
-            block.DisinfectionPerZone *= Plugin.DisinfectionResourceMultiplier.Value;
-            block.WeaponAmmoPerZone *= Plugin.WeaponAmmoResourceMultiplier.Value;
-            block.ToolAmmoPerZone *= Plugin.ToolAmmoResourceMultiplier.Value;
-            block.CommodityValuePerZone *= Plugin.CommodityValueMultiplier.Value;
-            block.ChanceToPutCommodityInResourceContainer *= Plugin.CommodityInContainerChanceMultiplier.Value;
-            block.ChanceToPutArtifactInResourceContainer *= Plugin.ArtifactInContainerChanceMultiplier.Value;
-            block.ChanceToSpawnCommodityLargePack *= Plugin.LargeCommodityPackChanceMultiplier.Value;
-            block.ChanceToSpawnCommodityMediumPack *= Plugin.MediumCommodityPackChanceMultiplier.Value;
-            block.ChanceToReUseResourceContainer *= Plugin.ResourceContainerReuseChanceMultiplier.Value;
-            block.MaxPacksPerResourceContainer = ScaleUp(block.MaxPacksPerResourceContainer, Plugin.MaxPacksPerContainerMultiplier.Value);
-            block.EmptyWeakResourceContainersPerZone *= Plugin.EmptyWeakContainersPerZoneMultiplier.Value;
-            block.EmptySecureResourceContainersPerZone *= Plugin.EmptySecureContainersPerZoneMultiplier.Value;
-            block.LootPerZone *= Plugin.LootPerZoneMultiplier.Value;
-            block.AirPerZone *= Plugin.AirPerZoneMultiplier.Value;
-            block.AirPerZoneInNoAir *= Plugin.AirPerZoneInNoAirZoneMultiplier.Value;
-            block.TerminalsPerZone *= Plugin.TerminalsPerZoneMultiplier.Value;
-            block.WeakResourceContainerWithPackChanceForLocked *= Plugin.LockedWeakContainerWithPackChanceMultiplier.Value;
+            block.HealthPerZone *= LevelSettings.Effective(Plugin.HealthPackResourceMultiplier);
+            block.DisinfectionPerZone *= LevelSettings.Effective(Plugin.DisinfectionResourceMultiplier);
+            block.WeaponAmmoPerZone *= LevelSettings.Effective(Plugin.WeaponAmmoResourceMultiplier);
+            block.ToolAmmoPerZone *= LevelSettings.Effective(Plugin.ToolAmmoResourceMultiplier);
+            block.CommodityValuePerZone *= LevelSettings.Effective(Plugin.CommodityValueMultiplier);
+            block.ChanceToPutCommodityInResourceContainer *= LevelSettings.Effective(Plugin.CommodityInContainerChanceMultiplier);
+            block.ChanceToPutArtifactInResourceContainer *= LevelSettings.Effective(Plugin.ArtifactInContainerChanceMultiplier);
+            block.ChanceToSpawnCommodityLargePack *= LevelSettings.Effective(Plugin.LargeCommodityPackChanceMultiplier);
+            block.ChanceToSpawnCommodityMediumPack *= LevelSettings.Effective(Plugin.MediumCommodityPackChanceMultiplier);
+            block.ChanceToReUseResourceContainer *= LevelSettings.Effective(Plugin.ResourceContainerReuseChanceMultiplier);
+            block.MaxPacksPerResourceContainer = ScaleUp(block.MaxPacksPerResourceContainer, LevelSettings.Effective(Plugin.MaxPacksPerContainerMultiplier));
+            block.EmptyWeakResourceContainersPerZone *= LevelSettings.Effective(Plugin.EmptyWeakContainersPerZoneMultiplier);
+            block.EmptySecureResourceContainersPerZone *= LevelSettings.Effective(Plugin.EmptySecureContainersPerZoneMultiplier);
+            block.LootPerZone *= LevelSettings.Effective(Plugin.LootPerZoneMultiplier);
+            block.AirPerZone *= LevelSettings.Effective(Plugin.AirPerZoneMultiplier);
+            block.AirPerZoneInNoAir *= LevelSettings.Effective(Plugin.AirPerZoneInNoAirZoneMultiplier);
+            block.TerminalsPerZone *= LevelSettings.Effective(Plugin.TerminalsPerZoneMultiplier);
+            block.WeakResourceContainerWithPackChanceForLocked *= LevelSettings.Effective(Plugin.LockedWeakContainerWithPackChanceMultiplier);
 
-            var packSizeMult = Plugin.ResourcePackSizeMultiplier.Value;
+            var packSizeMult = LevelSettings.Effective(Plugin.ResourcePackSizeMultiplier);
             for (var i = 0; i < block.ResourcePackSizes.Count; i++)
             {
                 block.ResourcePackSizes[i] *= packSizeMult;
             }
 
-            block.EnemyPatrolGroupsPerZone = ScaleDown(block.EnemyPatrolGroupsPerZone, Plugin.EnemyPatrolGroupsPerZoneMultiplier.Value);
-            block.StaticEnemiesMaxPerZone = ScaleDown(block.StaticEnemiesMaxPerZone, Plugin.StaticEnemiesMaxPerZoneMultiplier.Value);
-            block.StaticEnemiesMaxSmallArea = ScaleDown(block.StaticEnemiesMaxSmallArea, Plugin.StaticEnemiesMaxSmallAreaMultiplier.Value);
-            block.StaticEnemiesMaxMediumArea = ScaleDown(block.StaticEnemiesMaxMediumArea, Plugin.StaticEnemiesMaxMediumAreaMultiplier.Value);
-            block.StaticEnemiesMaxLargeArea = ScaleDown(block.StaticEnemiesMaxLargeArea, Plugin.StaticEnemiesMaxLargeAreaMultiplier.Value);
-            block.StaticEnemiesMaxHugeArea = ScaleDown(block.StaticEnemiesMaxHugeArea, Plugin.StaticEnemiesMaxHugeAreaMultiplier.Value);
-            block.EnemyPopulationPerZone *= Plugin.EnemyPopulationPerZoneMultiplier.Value;
+            block.EnemyPatrolGroupsPerZone = ScaleDown(block.EnemyPatrolGroupsPerZone, LevelSettings.Effective(Plugin.EnemyPatrolGroupsPerZoneMultiplier));
+            block.StaticEnemiesMaxPerZone = ScaleDown(block.StaticEnemiesMaxPerZone, LevelSettings.Effective(Plugin.StaticEnemiesMaxPerZoneMultiplier));
+            block.StaticEnemiesMaxSmallArea = ScaleDown(block.StaticEnemiesMaxSmallArea, LevelSettings.Effective(Plugin.StaticEnemiesMaxSmallAreaMultiplier));
+            block.StaticEnemiesMaxMediumArea = ScaleDown(block.StaticEnemiesMaxMediumArea, LevelSettings.Effective(Plugin.StaticEnemiesMaxMediumAreaMultiplier));
+            block.StaticEnemiesMaxLargeArea = ScaleDown(block.StaticEnemiesMaxLargeArea, LevelSettings.Effective(Plugin.StaticEnemiesMaxLargeAreaMultiplier));
+            block.StaticEnemiesMaxHugeArea = ScaleDown(block.StaticEnemiesMaxHugeArea, LevelSettings.Effective(Plugin.StaticEnemiesMaxHugeAreaMultiplier));
+            block.EnemyPopulationPerZone *= LevelSettings.Effective(Plugin.EnemyPopulationPerZoneMultiplier);
 
-            block.VoxelCoverageAreaMultiplier *= Plugin.LevelGenVoxelCoverageMultiplier.Value;
-            block.VoxelCoverageAreaScoringRandomMultiplier *= Plugin.LevelGenVoxelCoverageRandomnessMultiplier.Value;
-            block.ArtifactsPerSegment = ScaleUp(block.ArtifactsPerSegment, Plugin.ArtifactsPerSegmentMultiplier.Value);
-            block.ArtifactsPerLayer = ScaleUp(block.ArtifactsPerLayer, Plugin.ArtifactsPerLayerMultiplier.Value);
+            block.VoxelCoverageAreaMultiplier *= LevelSettings.Effective(Plugin.LevelGenVoxelCoverageMultiplier);
+            block.VoxelCoverageAreaScoringRandomMultiplier *= LevelSettings.Effective(Plugin.LevelGenVoxelCoverageRandomnessMultiplier);
+            block.ArtifactsPerSegment = ScaleUp(block.ArtifactsPerSegment, LevelSettings.Effective(Plugin.ArtifactsPerSegmentMultiplier));
+            block.ArtifactsPerLayer = ScaleUp(block.ArtifactsPerLayer, LevelSettings.Effective(Plugin.ArtifactsPerLayerMultiplier));
 
-            block.WeakDoor4x4Health *= Plugin.WeakDoor4x4HealthMultiplier.Value;
-            block.WeakDoor8x4Health *= Plugin.WeakDoor8x4HealthMultiplier.Value;
-            block.WeakDoorChanceLockWeightNoLock *= Plugin.WeakDoorNoLockWeightMultiplier.Value;
-            block.WeakDoorChanceLockWeightMeleeLock *= Plugin.WeakDoorMeleeLockWeightMultiplier.Value;
-            block.WeakDoorChanceLockWeightHackableLock *= Plugin.WeakDoorHackableLockWeightMultiplier.Value;
-            block.WeakDoorUnlockedChanceForOpen *= Plugin.WeakDoorUnlockedOpenChanceMultiplier.Value;
-            block.WeakDoorOpenChanceForWallRemoverUsed *= Plugin.WeakDoorWallRemoverOpenChanceMultiplier.Value;
-            block.WeakDoorLockHealth *= Plugin.WeakDoorLockHealthMultiplier.Value;
-            block.GlueVolumeToDoorHealthConversion *= Plugin.GlueVolumeToDoorHealthConversionMultiplier.Value;
-            block.GlueVolumeForDoorGlueMaxState *= Plugin.GlueVolumeForDoorMaxStateMultiplier.Value;
+            block.WeakDoor4x4Health *= LevelSettings.Effective(Plugin.WeakDoor4x4HealthMultiplier);
+            block.WeakDoor8x4Health *= LevelSettings.Effective(Plugin.WeakDoor8x4HealthMultiplier);
+            block.WeakDoorChanceLockWeightNoLock *= LevelSettings.Effective(Plugin.WeakDoorNoLockWeightMultiplier);
+            block.WeakDoorChanceLockWeightMeleeLock *= LevelSettings.Effective(Plugin.WeakDoorMeleeLockWeightMultiplier);
+            block.WeakDoorChanceLockWeightHackableLock *= LevelSettings.Effective(Plugin.WeakDoorHackableLockWeightMultiplier);
+            block.WeakDoorUnlockedChanceForOpen *= LevelSettings.Effective(Plugin.WeakDoorUnlockedOpenChanceMultiplier);
+            block.WeakDoorOpenChanceForWallRemoverUsed *= LevelSettings.Effective(Plugin.WeakDoorWallRemoverOpenChanceMultiplier);
+            block.WeakDoorLockHealth *= LevelSettings.Effective(Plugin.WeakDoorLockHealthMultiplier);
+            block.GlueVolumeToDoorHealthConversion *= LevelSettings.Effective(Plugin.GlueVolumeToDoorHealthConversionMultiplier);
+            block.GlueVolumeForDoorGlueMaxState *= LevelSettings.Effective(Plugin.GlueVolumeForDoorMaxStateMultiplier);
 
             ApplyStaticEnemyData(block.TentacleTraps,
-                Plugin.TentacleTrapHealthMultiplier.Value,
-                Plugin.TentacleTrapAttackDamageMultiplier.Value,
-                Plugin.TentacleTrapMaxPerZoneMultiplier.Value,
-                Plugin.TentacleTrapMaxSmallAreaMultiplier.Value,
-                Plugin.TentacleTrapMaxMediumAreaMultiplier.Value,
-                Plugin.TentacleTrapMaxLargeAreaMultiplier.Value,
-                Plugin.TentacleTrapMaxHugeAreaMultiplier.Value);
+                LevelSettings.Effective(Plugin.TentacleTrapHealthMultiplier),
+                LevelSettings.Effective(Plugin.TentacleTrapAttackDamageMultiplier),
+                LevelSettings.Effective(Plugin.TentacleTrapMaxPerZoneMultiplier),
+                LevelSettings.Effective(Plugin.TentacleTrapMaxSmallAreaMultiplier),
+                LevelSettings.Effective(Plugin.TentacleTrapMaxMediumAreaMultiplier),
+                LevelSettings.Effective(Plugin.TentacleTrapMaxLargeAreaMultiplier),
+                LevelSettings.Effective(Plugin.TentacleTrapMaxHugeAreaMultiplier));
 
             ApplyStaticEnemyData(block.ParasiteNests,
-                Plugin.ParasiteNestHealthMultiplier.Value,
-                Plugin.ParasiteNestAttackDamageMultiplier.Value,
-                Plugin.ParasiteNestMaxPerZoneMultiplier.Value,
-                Plugin.ParasiteNestMaxSmallAreaMultiplier.Value,
-                Plugin.ParasiteNestMaxMediumAreaMultiplier.Value,
-                Plugin.ParasiteNestMaxLargeAreaMultiplier.Value,
-                Plugin.ParasiteNestMaxHugeAreaMultiplier.Value);
+                LevelSettings.Effective(Plugin.ParasiteNestHealthMultiplier),
+                LevelSettings.Effective(Plugin.ParasiteNestAttackDamageMultiplier),
+                LevelSettings.Effective(Plugin.ParasiteNestMaxPerZoneMultiplier),
+                LevelSettings.Effective(Plugin.ParasiteNestMaxSmallAreaMultiplier),
+                LevelSettings.Effective(Plugin.ParasiteNestMaxMediumAreaMultiplier),
+                LevelSettings.Effective(Plugin.ParasiteNestMaxLargeAreaMultiplier),
+                LevelSettings.Effective(Plugin.ParasiteNestMaxHugeAreaMultiplier));
         }
     }
 
@@ -585,7 +650,7 @@ internal static class GameDataInit_EmptyDisabledLoot_Patch
         new Harmony(HarmonyId).Patch(AccessTools.Method(typeof(GameDataInit), nameof(GameDataInit.Initialize)), postfix: postfix);
     }
 
-    private static void Postfix()
+    internal static void Postfix()
     {
         try
         {
@@ -604,6 +669,131 @@ internal static class GameDataInit_EmptyDisabledLoot_Patch
         catch (Exception e)
         {
             Plugin.Logger.LogError($"GTFO.EZ failed to empty all-disabled loot tables: {e}");
+        }
+    }
+}
+
+// G.EZ-T125: the vanilla values of every level datablock field the expedition balance, artifact and
+// loot tweaks touch, captured right before they run, so they can be put back and the tweaks run again
+// with other values (the host's) without compounding. Fields are named with nameof and read/written
+// through the interop properties; lists (pack sizes, consumable tables) are copied element by element.
+internal sealed class LevelBlockSnapshot
+{
+    private readonly List<Action> restore = new();
+
+    internal static LevelBlockSnapshot Capture()
+    {
+        var s = new LevelBlockSnapshot();
+
+        foreach (var block in GameDataBlockBase<ExpeditionBalanceDataBlock>.GetAllBlocks())
+        {
+            if (block == null) continue;
+            s.Props(block,
+                nameof(ExpeditionBalanceDataBlock.HealthPerZone), nameof(ExpeditionBalanceDataBlock.DisinfectionPerZone),
+                nameof(ExpeditionBalanceDataBlock.WeaponAmmoPerZone), nameof(ExpeditionBalanceDataBlock.ToolAmmoPerZone),
+                nameof(ExpeditionBalanceDataBlock.CommodityValuePerZone), nameof(ExpeditionBalanceDataBlock.ChanceToPutCommodityInResourceContainer),
+                nameof(ExpeditionBalanceDataBlock.ChanceToPutArtifactInResourceContainer), nameof(ExpeditionBalanceDataBlock.ChanceToSpawnCommodityLargePack),
+                nameof(ExpeditionBalanceDataBlock.ChanceToSpawnCommodityMediumPack), nameof(ExpeditionBalanceDataBlock.ChanceToReUseResourceContainer),
+                nameof(ExpeditionBalanceDataBlock.MaxPacksPerResourceContainer), nameof(ExpeditionBalanceDataBlock.EmptyWeakResourceContainersPerZone),
+                nameof(ExpeditionBalanceDataBlock.EmptySecureResourceContainersPerZone), nameof(ExpeditionBalanceDataBlock.LootPerZone),
+                nameof(ExpeditionBalanceDataBlock.AirPerZone), nameof(ExpeditionBalanceDataBlock.AirPerZoneInNoAir),
+                nameof(ExpeditionBalanceDataBlock.TerminalsPerZone), nameof(ExpeditionBalanceDataBlock.WeakResourceContainerWithPackChanceForLocked),
+                nameof(ExpeditionBalanceDataBlock.EnemyPatrolGroupsPerZone), nameof(ExpeditionBalanceDataBlock.StaticEnemiesMaxPerZone),
+                nameof(ExpeditionBalanceDataBlock.StaticEnemiesMaxSmallArea), nameof(ExpeditionBalanceDataBlock.StaticEnemiesMaxMediumArea),
+                nameof(ExpeditionBalanceDataBlock.StaticEnemiesMaxLargeArea), nameof(ExpeditionBalanceDataBlock.StaticEnemiesMaxHugeArea),
+                nameof(ExpeditionBalanceDataBlock.EnemyPopulationPerZone), nameof(ExpeditionBalanceDataBlock.VoxelCoverageAreaMultiplier),
+                nameof(ExpeditionBalanceDataBlock.VoxelCoverageAreaScoringRandomMultiplier), nameof(ExpeditionBalanceDataBlock.ArtifactsPerSegment),
+                nameof(ExpeditionBalanceDataBlock.ArtifactsPerLayer), nameof(ExpeditionBalanceDataBlock.WeakDoor4x4Health),
+                nameof(ExpeditionBalanceDataBlock.WeakDoor8x4Health), nameof(ExpeditionBalanceDataBlock.WeakDoorChanceLockWeightNoLock),
+                nameof(ExpeditionBalanceDataBlock.WeakDoorChanceLockWeightMeleeLock), nameof(ExpeditionBalanceDataBlock.WeakDoorChanceLockWeightHackableLock),
+                nameof(ExpeditionBalanceDataBlock.WeakDoorUnlockedChanceForOpen), nameof(ExpeditionBalanceDataBlock.WeakDoorOpenChanceForWallRemoverUsed),
+                nameof(ExpeditionBalanceDataBlock.WeakDoorLockHealth), nameof(ExpeditionBalanceDataBlock.GlueVolumeToDoorHealthConversion),
+                nameof(ExpeditionBalanceDataBlock.GlueVolumeForDoorGlueMaxState));
+
+            var sizes = block.ResourcePackSizes;
+            if (sizes != null)
+            {
+                var values = new float[sizes.Count];
+                for (var i = 0; i < values.Length; i++) values[i] = sizes[i];
+                s.restore.Add(() =>
+                {
+                    for (var i = 0; i < values.Length && i < sizes.Count; i++) sizes[i] = values[i];
+                });
+            }
+
+            foreach (var data in new[] { block.TentacleTraps, block.ParasiteNests })
+            {
+                if (data == null) continue;
+                s.Props(data, nameof(StaticEnemyData.Health), nameof(StaticEnemyData.AttackDamage), nameof(StaticEnemyData.MaxPerZone),
+                    nameof(StaticEnemyData.MaxSmallArea), nameof(StaticEnemyData.MaxMediumArea), nameof(StaticEnemyData.MaxLargeArea),
+                    nameof(StaticEnemyData.MaxHugeArea));
+            }
+        }
+
+        foreach (var block in GameDataBlockBase<ArtifactDistributionDataBlock>.GetAllBlocks())
+            if (block != null)
+                s.Props(block, nameof(ArtifactDistributionDataBlock.BasicWeight), nameof(ArtifactDistributionDataBlock.SpecializedWeight),
+                    nameof(ArtifactDistributionDataBlock.AdvancedWeight));
+
+        foreach (var rundown in GameDataBlockBase<RundownDataBlock>.GetAllBlocks())
+        {
+            if (rundown == null) continue;
+            foreach (var tier in new[] { rundown.TierA, rundown.TierB, rundown.TierC, rundown.TierD, rundown.TierE })
+            {
+                if (tier == null) continue;
+                foreach (var expedition in tier)
+                {
+                    if (expedition == null) continue;
+                    foreach (var layer in new[] { expedition.MainLayerData, expedition.SecondaryLayerData, expedition.ThirdLayerData })
+                    {
+                        var artifacts = layer?.ArtifactData;
+                        if (artifacts == null) continue;
+                        s.Props(artifacts, nameof(artifacts.ArtifactAmountMulti));
+                        if (artifacts.ArtifactZoneDistributions == null) continue;
+                        foreach (var zone in artifacts.ArtifactZoneDistributions)
+                            if (zone != null)
+                                s.Props(zone, nameof(zone.BasicArtifactWeight), nameof(zone.SpecializedArtifactWeight), nameof(zone.AdvancedArtifactWeight));
+                    }
+                }
+            }
+        }
+
+        foreach (var block in GameDataBlockBase<ConsumableDistributionDataBlock>.GetAllBlocks())
+        {
+            if (block == null) continue;
+            s.Props(block, nameof(ConsumableDistributionDataBlock.SpawnsPerZone), nameof(ConsumableDistributionDataBlock.ChanceToSpawnInResourceContainer));
+            var spawnData = block.SpawnData;
+            if (spawnData == null) continue;
+            var entries = new List<(uint Id, float Weight)>();
+            foreach (var entry in spawnData) entries.Add((entry.ItemID, entry.Weight));
+            s.restore.Add(() =>
+            {
+                block.SpawnData.Clear();
+                foreach (var (id, weight) in entries) block.SpawnData.Add(new ConsumableSpawnData { ItemID = id, Weight = weight });
+            });
+        }
+
+        foreach (var block in GameDataBlockBase<BigPickupDistributionDataBlock>.GetAllBlocks())
+            if (block != null)
+                s.Props(block, nameof(BigPickupDistributionDataBlock.SpawnsPerZone));
+
+        Plugin.Logger.LogInfo($"GTFO.EZ: {s.restore.Count} vanilla level values kept for the host/client level settings sync.");
+        return s;
+    }
+
+    internal void Restore()
+    {
+        foreach (var action in restore) action();
+    }
+
+    private void Props(object target, params string[] names)
+    {
+        var type = target.GetType();
+        foreach (var name in names)
+        {
+            var property = type.GetProperty(name) ?? throw new MissingMemberException(type.Name, name);
+            var value = property.GetValue(target);
+            restore.Add(() => property.SetValue(target, value));
         }
     }
 }
