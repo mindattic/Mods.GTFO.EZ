@@ -70,12 +70,16 @@ its own, each with its own config section and on/off switch:
   PING, and any error falls back to it.
 - **Multi-Sentry Cycling (SPIKE)**: while your Tool slot is wielded, pressing its select key again
   (**4** by default) swaps your Sentry Gun to the next of four real vanilla fire-mode variants
-  (burst, staggering auto, sniper semi, shotgun) instead of just the one you loaded out with -
-  place one, cycle, place the next, so one player can have several different turrets down at once.
+  (burst, staggering auto, sniper semi, shotgun) instead of just the one you loaded out with. The
+  variant you've cycled to is the one your own turret goes down as.
+- **Team placement with E**: as host, while any bot still carries an undeployed sentry, each E
+  press while aiming your own sentry places the next bot's sentry at your ghost and keeps yours in
+  hand for the next press; your own goes down last, and only then does slot 4 put itself away and
+  return your previous weapon.
 
 | Input | Action |
 |---|---|
-| E (aiming your sentry) | Place your own sentry - instant, then back to your previous weapon |
+| E (aiming your sentry) | Place the next turret - bots' first (host only), yours last - instant; back to your previous weapon once all are down |
 | Shift+E (aiming your sentry) | Place the next bot's tool at your aim instead (host only) |
 | Insert | Infinite health on/off |
 | Delete | Infinite ammo on/off |

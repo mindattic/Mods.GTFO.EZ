@@ -79,11 +79,15 @@ weapon, and every ranged weapon archetype plus sentries - all left at vanilla by
 - **Multi-Sentry Cycling** (new in v20, on by default): while your Tool slot is wielded, pressing
   its select key again (4 by default) swaps your Sentry Gun to the next of four real vanilla
   fire-mode variants (burst, staggering auto, sniper semi, shotgun) instead of just the one you
-  loaded out with, so one player can have several different turrets down at once.
+  loaded out with; your own turret goes down as whichever variant you've cycled to.
+- **Team placement with E** (G.EZ-T116, part of Bot tool controls): as host, while any bot still
+  carries an undeployed sentry, each E press while aiming your own sentry places the next bot's
+  sentry at your ghost and keeps yours in hand for the next press; your own goes down last, and only
+  then does slot 4 put itself away and return your previous weapon.
 
 | Input | Action |
 |---|---|
-| E (aiming your sentry) | Place your own sentry - instant, then back to your previous weapon |
+| E (aiming your sentry) | Place the next turret - bots' first (host only), yours last - instant; back to your previous weapon once all are down |
 | Shift+E (aiming your sentry) | Place the next bot's tool at your aim instead (host only) |
 | Insert | Infinite health on/off |
 | Delete | Infinite ammo on/off |

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using HarmonyLib;
+using MindAttic.GTFO.Shared;
 using Player;
 using SNetwork;
 using UnityEngine;
@@ -75,19 +76,67 @@ internal static class Hotkeys
 // With sentry placement made instant, the plain E inside Shift+E would also complete the
 // vanilla placement of your own held sentry in the same press. Hold that back for your own sentry
 // only - a bot's placement and X's own call go through.
+//
+// G.EZ-T116: plain E with your own sentry in hand also works through the whole team, one turret per
+// press. Placing your own sentry marks the Tool slot deployed (the item is now in the world), so
+// SentryGunFirstPerson_PlaceOnGround_Patch below switches you back to your previous weapon and slot 4
+// is empty - which is why one placement used to "remove the slot 4 items": the G.EZ-T111 variants are
+// only different builds of that one slot, so nothing was left to place. So while any bot still has an
+// undeployed sentry, E places that bot's sentry at your placement ghost instead and keeps your own in
+// hand, ghost and all, for the next press; your own (the variant you've cycled to) goes down last,
+// and only then does the existing postfix put slot 4 away and return your previous weapon.
 [HarmonyPatch(typeof(SentryGunFirstPerson), nameof(SentryGunFirstPerson.PlaceOnGround))]
 internal static class SentryGunFirstPerson_PlaceOnGround_ModifierGuard
 {
+    // With placement instant, a held E can re-trigger placement on the next frames; without this one
+    // press would dump every remaining turret (and then your own) on the same spot.
+    private const float TeamPlaceCooldown = 0.4f;
+    private static float _lastTeamPlaceAt = -10f;
+
     [HarmonyPrefix]
     private static bool Prefix(SentryGunFirstPerson __instance)
     {
         if (OwnSentryAutoPlace.Placing || !Plugin.BotsDeployOnShiftE.Value) return true;
+        var own = BotDeployAtAim.LocalSentry();
+        if (own == null || own.Pointer != __instance.Pointer) return true; // a bot's placement - never ours to hold back
+
         // The press itself counts too: the sentry's own update can place it this frame before the
         // hotkey postfix has stamped ShiftEPressedAt (Unity doesn't order the two components).
         var pressedNow = Input.GetKeyDown(KeyCode.E);
-        if (!Hotkeys.ShiftHeld || (!pressedNow && Time.time - Hotkeys.ShiftEPressedAt > Hotkeys.ShiftEPressWindow)) return true;
-        var own = BotDeployAtAim.LocalSentry();
-        return own == null || own.Pointer != __instance.Pointer;
+        if (Hotkeys.ShiftHeld && (pressedNow || Time.time - Hotkeys.ShiftEPressedAt <= Hotkeys.ShiftEPressWindow)) return false;
+
+        return !TryPlaceNextBotInstead(__instance);
+    }
+
+    // True when a bot's sentry went down in place of your own (or the same press is still settling),
+    // so the vanilla placement of your own is skipped and it stays in your hands.
+    private static bool TryPlaceNextBotInstead(SentryGunFirstPerson own)
+    {
+        if (Time.time - _lastTeamPlaceAt < TeamPlaceCooldown) return true;
+        // Bots belong to the host; a client's E stays plain vanilla (just your own).
+        if (!SNet.IsMaster) return false;
+
+        try
+        {
+            if (!PlayerManager.TryGetLocalPlayerAgent(out var agent) || agent?.Inventory == null) return false;
+            if (agent.Inventory.WieldedSlot != InventorySlot.GearClass) return false;
+            if (BotDeployAtAim.CountUndeployedBotSentries() == 0) return false;
+
+            var pose = new Pose(own.m_placePos, own.m_cameraLookRot);
+            if (!BotDeployAtAim.DeployBotAt(pose, "E")) return false;
+
+            _lastTeamPlaceAt = Time.time;
+            var left = BotDeployAtAim.CountUndeployedBotSentries();
+            MessageHelper.Show(left > 0
+                ? $"Bot turret placed - {left} more bot turret(s), then yours"
+                : "Bot turret placed - yours is next", MessageType.Center, 2.5f);
+            return true;
+        }
+        catch (Exception e)
+        {
+            Plugin.Logger.LogWarning($"E: couldn't place the next bot turret - placing your own instead. {e}");
+            return false;
+        }
     }
 }
 
@@ -236,6 +285,20 @@ internal static class BotDeployAtAim
             ? $"{logTag}: no bots in the level."
             : $"{logTag}: no bot has an undeployed tool to place. Bots' Tool slots: {string.Join(", ", skipped)}.");
         return false;
+    }
+
+    // How many bots still carry a sentry that isn't down - the same test DeployBotAt picks by.
+    internal static int CountUndeployedBotSentries()
+    {
+        var count = 0;
+        foreach (var bot in Bots.List())
+        {
+            var backpack = bot?.Backpack;
+            if (backpack == null || backpack.IsDeployed(InventorySlot.GearClass)) continue;
+            if (!backpack.TryGetBackpackItem(InventorySlot.GearClass, out var item) || item?.Instance?.TryCast<SentryGunFirstPerson>() == null) continue;
+            count++;
+        }
+        return count;
     }
 
     // Mirrors exactly what the player's own SentryGunFirstPerson.Update() already computes every
