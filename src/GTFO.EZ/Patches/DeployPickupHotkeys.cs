@@ -34,7 +34,20 @@ internal static class DeployPickupHotkeys_Update_Patch
     private static void Postfix(Dam_PlayerDamageLocal __instance)
     {
         if (!LocalPlayerDamage.IsMine(__instance)) return;
-        if (!Plugin.BotsDeployOnShiftE.Value) return;
+        if (!Plugin.BotsDeployOnShiftE.Value)
+        {
+            // G.EZ-T124: a host with the pool off still says so, so clients place their own instead
+            // of holding it as "pool unknown".
+            try
+            {
+                TeamTurretNet.TickDisabled();
+            }
+            catch (Exception e)
+            {
+                Plugin.Logger.LogWarning($"Team turrets: tick failed. {e}");
+            }
+            return;
+        }
 
         // G.EZ-T120: the shared team turret pool - selection, the Tool key's cycling, and the host's
         // pool broadcast (which runs outside FPS focus too, so a host at a terminal still answers).
@@ -68,16 +81,17 @@ internal static class DeployPickupHotkeys_Update_Patch
             }
             else
             {
+                // G.EZ-T124: who recalled what, and how many bot turrets are left, goes to every
+                // player's event log (from the host, once the recalled turrets are confirmed back).
+                var ownToo = OwnSentryAutoPickup.Pickup();
                 if (SNet.IsMaster)
                 {
-                    PickupAllBotTools.Activate();
-                    TeamTurretNet.BroadcastNow();
+                    TeamTurretNet.HostRecall(SNet.LocalPlayer != null ? SNet.LocalPlayer.Lookup : 0UL, ownToo);
                 }
-                else
+                else if (!TeamTurretNet.RequestRecallBots(ownToo) && ownToo) // bots belong to the host - it recalls them
                 {
-                    TeamTurretNet.RequestRecallBots(); // bots belong to the host - it recalls them
+                    MessageHelper.Show("You recalled your own turret", MessageType.EventLog);
                 }
-                OwnSentryAutoPickup.Pickup();
             }
         }
 
@@ -126,10 +140,14 @@ internal static class SentryGunFirstPerson_PlaceOnGround_ModifierGuard
         var shiftE = Hotkeys.ShiftHeld && (pressedNow || Time.time - Hotkeys.ShiftEPressedAt <= Hotkeys.ShiftEPressWindow);
 
         var selectedBot = 0UL;
+        var poolUnknown = false;
         if (!shiftE)
         {
             try
             {
+                // G.EZ-T124: no fresh word from the host - bot turrets may still be queued, so your
+                // own is held (own-last), not placed as if the pool were empty.
+                poolUnknown = TeamTurrets.PoolUnknown;
                 selectedBot = TeamTurrets.ResolveNow();
             }
             catch (Exception e)
@@ -142,9 +160,10 @@ internal static class SentryGunFirstPerson_PlaceOnGround_ModifierGuard
         }
 
         // The decision is GTFO.EZ.Core.TeamSentryRules (unit tested); this only gathers the inputs.
-        switch (GTFO.EZ.Core.TeamSentryRules.Decide(shiftE, Time.time - TeamTurrets.LastTeamPlaceAt, selectedBot != 0))
+        switch (GTFO.EZ.Core.TeamSentryRules.Decide(shiftE, Time.time - TeamTurrets.LastTeamPlaceAt, selectedBot != 0, poolUnknown))
         {
             case GTFO.EZ.Core.TeamSentryPlacement.HoldOwn:
+                if (poolUnknown && pressedNow) TeamTurrets.ShowUnknown();
                 return false;
             case GTFO.EZ.Core.TeamSentryPlacement.PlaceBotInstead:
                 // The bot's turret goes down (host) or is asked for (client); either way your own
@@ -427,8 +446,11 @@ internal static class QuickDropAll
 // OwnSentryAutoPickup below - the reverse of X's own half.
 internal static class PickupAllBotTools
 {
-    internal static void Activate()
+    // The SNet lookups of the bots whose turret was recalled (TeamTurretNet checks they're back in the
+    // pool a moment later - EnsureBackInPool - and only then tells the team).
+    internal static List<ulong> Activate()
     {
+        var recalled = new List<ulong>();
         List<PlayerAIBot> bots;
         try
         {
@@ -437,10 +459,9 @@ internal static class PickupAllBotTools
         catch (Exception e)
         {
             Plugin.Logger.LogWarning($"Z: couldn't list bots. {e}");
-            return;
+            return recalled;
         }
 
-        var recalled = 0;
         // Placed sentries are found in the level and matched to their bot through the backpack each
         // one records it belongs to. Neither backpack lookup works for this: the game's
         // GatherDeployables.Descriptor.Evaluate wrapper throws a TypeLoadException on Il2CppSystem
@@ -454,7 +475,7 @@ internal static class PickupAllBotTools
         catch (Exception e)
         {
             Plugin.Logger.LogWarning($"Z: couldn't list placed sentries. {e}");
-            return;
+            return recalled;
         }
 
         foreach (var obj in placed)
@@ -473,7 +494,8 @@ internal static class PickupAllBotTools
                 var desc = new PlayerBotActionGatherDeployables.Descriptor(bot);
                 var action = new PlayerBotActionGatherDeployables(desc) { m_targetItem = sentry };
                 action.PickUpItem();
-                recalled++;
+                var lookup = owner.Owner?.Lookup ?? 0UL;
+                if (lookup != 0) recalled.Add(lookup);
             }
             catch (Exception e)
             {
@@ -481,7 +503,45 @@ internal static class PickupAllBotTools
             }
         }
 
-        Plugin.Logger.LogInfo($"Z: recalled {recalled} bot sentry(s) of {placed.Length} placed in the level.");
+        Plugin.Logger.LogInfo($"Z: recalled {recalled.Count} bot sentry(s) of {placed.Length} placed in the level.");
+        return recalled;
+    }
+
+    // G.EZ-T124: whether the bot AI's PickUpItem clears the backpack's deployed flag isn't something
+    // the interop stubs show, and the pool counts a bot whose flag is still set as down - so a recalled
+    // turret could stay out of the pool for good. Checked a moment after the recall: if no placed
+    // sentry of this bot's is left in the level but its backpack still says deployed, the flag is
+    // cleared (TeamTurretPool.ClearDeployedAfterRecall). Never while its turret is still standing -
+    // that would let a second one go down. True when the bot's turret is back in the pool.
+    internal static bool EnsureBackInPool(ulong lookup, float secondsSinceRecall)
+    {
+        try
+        {
+            if (!Bots.Find(lookup, out _, out var backpack, out _, out var isSentry) || backpack == null || !isSentry) return false;
+            var deployed = backpack.IsDeployed(InventorySlot.GearClass);
+            if (!deployed) return true;
+
+            var standing = false;
+            foreach (var obj in UnityEngine.Object.FindObjectsOfType(Il2CppInterop.Runtime.Il2CppType.Of<SentryGunInstance>()))
+            {
+                var owner = obj?.TryCast<SentryGunInstance>()?.m_belongsToBackpack;
+                if (owner != null && owner.Pointer == backpack.Pointer) { standing = true; break; }
+            }
+
+            if (GTFO.EZ.Core.TeamTurretPool.ClearDeployedAfterRecall(deployed, standing, secondsSinceRecall))
+            {
+                backpack.SetDeployed(InventorySlot.GearClass, false);
+                Plugin.Logger.LogInfo($"Z: {TeamTurrets.Label(lookup)} was picked up but its backpack still said deployed - cleared, it's back in the pool.");
+                return true;
+            }
+            if (standing) Plugin.Logger.LogWarning($"Z: {TeamTurrets.Label(lookup)} is still standing after the recall - left out of the pool.");
+            return false;
+        }
+        catch (Exception e)
+        {
+            Plugin.Logger.LogWarning($"Z: couldn't check {TeamTurrets.Label(lookup)} came back. {e}");
+            return false;
+        }
     }
 }
 
@@ -492,14 +552,15 @@ internal static class PickupAllBotTools
 // like PlaceOnGround already is for placing.
 internal static class OwnSentryAutoPickup
 {
-    internal static void Pickup()
+    // True when your own sentry was picked up (G.EZ-T124: so the team's event log can say so).
+    internal static bool Pickup()
     {
         try
         {
             var backpack = PlayerBackpackManager.LocalBackpack;
-            if (backpack == null || !backpack.IsDeployed(InventorySlot.GearClass)) return; // nothing of yours is out
+            if (backpack == null || !backpack.IsDeployed(InventorySlot.GearClass)) return false; // nothing of yours is out
 
-            if (!PlayerManager.TryGetLocalPlayerAgent(out var agent) || agent == null) return;
+            if (!PlayerManager.TryGetLocalPlayerAgent(out var agent) || agent == null) return false;
 
             SentryGunInstance? placed = null;
             foreach (var obj in UnityEngine.Object.FindObjectsOfType(Il2CppInterop.Runtime.Il2CppType.Of<SentryGunInstance>()))
@@ -514,15 +575,17 @@ internal static class OwnSentryAutoPickup
             if (placed == null)
             {
                 Plugin.Logger.LogInfo("Z: couldn't find your placed sentry in the level.");
-                return;
+                return false;
             }
 
             placed.PickUp(agent);
             Plugin.Logger.LogInfo("Z: recalled your own sentry.");
+            return true;
         }
         catch (Exception e)
         {
             Plugin.Logger.LogWarning($"Z: couldn't recall your own sentry. {e}");
+            return false;
         }
     }
 }

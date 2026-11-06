@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Team turret counts are accurate for every player: placements, failed placements and Z recalls
+  show in everyone's event log with who did it and how many bot turrets are left; a client with no
+  fresh word from the host shows "Team turret pool unavailable (host)" and holds its own turret
+  instead of counting 0 bot turrets (a host with the pool off, or none at all, is said so and your
+  own places like vanilla); a refused request says why (taken, failed, pool off); a placed turret
+  no longer briefly counts as available again while the host's answer is on its way; nothing
+  carries over from the last level; and a recalled bot turret is made sure to come back into the pool.
 - Ping Anywhere's cross-zone marker now shows for the whole team, not just whoever typed the PING:
   the pinged item's key is sent to every player, whose game finds the same item and marks it for
   the same time, with "Bob pinged KEY in ZONE_n" in the event log.

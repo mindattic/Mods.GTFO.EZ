@@ -31,9 +31,12 @@ public static class TeamSentryRules
 {
     public const float TeamPlaceCooldown = 0.4f;
 
-    public static TeamSentryPlacement Decide(bool shiftEActive, float secondsSinceLastTeamPlace, bool selectedIsBot)
+    /// <param name="poolUnknown">G.EZ-T124: the host's pool state hasn't arrived yet (or went stale) -
+    /// bot turrets may still be queued, so your own is held (own-last) rather than placed.</param>
+    public static TeamSentryPlacement Decide(bool shiftEActive, float secondsSinceLastTeamPlace, bool selectedIsBot, bool poolUnknown = false)
     {
         if (shiftEActive) return TeamSentryPlacement.HoldOwn;
+        if (poolUnknown) return TeamSentryPlacement.HoldOwn;
         if (secondsSinceLastTeamPlace < TeamPlaceCooldown) return TeamSentryPlacement.HoldOwn;
         return selectedIsBot ? TeamSentryPlacement.PlaceBotInstead : TeamSentryPlacement.PlaceOwn;
     }
@@ -61,11 +64,69 @@ public static class TeamTurretPool
     public const int None = -1;
     public const int Own = 0;
 
-    /// <summary>How long a client treats a bot turret it asked the host to place as taken, waiting for the answer.</summary>
-    public const float ClientPendingSeconds = 2f;
+    /// <summary>
+    /// G.EZ-T124: a client's request stays pending - that bot turret off its list - until the host's
+    /// answer to that request id arrives (or a state shows the bot down); this is only the give-up
+    /// time for an answer that never comes.
+    /// </summary>
+    public const float ClientRequestTimeoutSeconds = 5f;
 
     /// <summary>How long a client trusts the host's last pool broadcast (the host repeats it every second).</summary>
     public const float HostStateFreshSeconds = 3f;
+
+    /// <summary>
+    /// G.EZ-T124: with no pool broadcast from the host this long into the level (or this long since the
+    /// last one), the host is taken not to run the pool (no GTFO.EZ, an older build, or it left) and
+    /// you place your own like vanilla rather than hold it forever.
+    /// </summary>
+    public const float NoHostPoolSeconds = 10f;
+
+    /// <summary>G.EZ-T124: a bot turret whose placement failed on the host sits out of the pool this long.</summary>
+    public const float FailedCooldownSeconds = 5f;
+
+    /// <summary>G.EZ-T124: how long after a Z recall the host checks the recalled turrets are really gone.</summary>
+    public const float RecallVerifySeconds = 0.5f;
+
+    /// <summary>
+    /// G.EZ-T124: what a client knows about the host's pool. Never "0 bot turrets" just because nothing
+    /// arrived: no broadcast yet, or a stale one, is <see cref="HostPoolStatus.Unknown"/> (your own is
+    /// held, own-last); only an explicit "off" from the host, or nothing at all for
+    /// <see cref="NoHostPoolSeconds"/>, is <see cref="HostPoolStatus.Off"/> (place your own).
+    /// </summary>
+    public static HostPoolStatus ClientPoolStatus(bool everReceived, float secondsSinceLastState, bool hostSaysEnabled, float secondsInLevel)
+    {
+        if (!everReceived) return secondsInLevel >= NoHostPoolSeconds ? HostPoolStatus.Off : HostPoolStatus.Unknown;
+        if (!hostSaysEnabled) return HostPoolStatus.Off;
+        if (secondsSinceLastState < HostStateFreshSeconds) return HostPoolStatus.Live;
+        return secondsSinceLastState >= NoHostPoolSeconds ? HostPoolStatus.Off : HostPoolStatus.Unknown;
+    }
+
+    /// <summary>G.EZ-T124: a pool state is used only if it's newer than the last one taken (wrap-safe), so a late packet can't put a placed turret back.</summary>
+    public static bool IsNewerState(bool haveLast, uint lastSeq, uint incomingSeq) =>
+        !haveLast || unchecked((int)(incomingSeq - lastSeq)) > 0;
+
+    /// <summary>A pending request with no answer for <see cref="ClientRequestTimeoutSeconds"/> is given up on.</summary>
+    public static bool RequestTimedOut(float secondsSinceSent) => secondsSinceSent >= ClientRequestTimeoutSeconds;
+
+    /// <summary>
+    /// G.EZ-T124: the host's answer to one bot placement, its own or a client's. <see cref="HostAccepts"/>
+    /// stays the no-duplicates gate; a bot sitting out a failed placement is refused as Failed.
+    /// </summary>
+    public static TurretPlaceResult HostDecide(bool poolEnabled, bool botFound, bool carriesSentry, bool alreadyDeployed, bool coolingDown)
+    {
+        if (!poolEnabled) return TurretPlaceResult.Disabled;
+        if (botFound && carriesSentry && alreadyDeployed) return TurretPlaceResult.Taken;
+        if (coolingDown || !HostAccepts(botFound, carriesSentry, alreadyDeployed)) return TurretPlaceResult.Failed;
+        return TurretPlaceResult.Placed;
+    }
+
+    /// <summary>
+    /// G.EZ-T124: after a Z recall, a bot whose backpack still says its sentry is down while no placed
+    /// sentry of its is left in the level gets the flag cleared, so the turret is back in the pool.
+    /// Never while the turret is still standing - that would let a second one go down.
+    /// </summary>
+    public static bool ClearDeployedAfterRecall(bool backpackSaysDeployed, bool turretStillInLevel, float secondsSinceRecall) =>
+        backpackSaysDeployed && !turretStillInLevel && secondsSinceRecall >= RecallVerifySeconds;
 
     /// <summary>The next available entry after <paramref name="current"/>, wrapping; <paramref name="current"/> itself only when it's the only one left; <see cref="None"/> when none is.</summary>
     public static int Next(IReadOnlyList<bool> available, int current)
@@ -116,9 +177,9 @@ public static class TeamTurretPool
     public static bool HostAccepts(bool botFound, bool carriesSentry, bool alreadyDeployed) =>
         botFound && carriesSentry && !alreadyDeployed;
 
-    /// <summary>A bot turret as a client sees it: only from a fresh host broadcast, not down, and not already asked for.</summary>
-    public static bool ClientBotAvailable(bool hostStateFresh, bool hostSaysDeployed, bool requestPending) =>
-        hostStateFresh && !hostSaysDeployed && !requestPending;
+    /// <summary>A bot turret as a client sees it: only from a live host pool, not down, not sitting out a failed placement, and not already asked for.</summary>
+    public static bool ClientBotAvailable(HostPoolStatus status, bool hostSaysDeployed, bool coolingDown, bool requestPending) =>
+        status == HostPoolStatus.Live && !hostSaysDeployed && !coolingDown && !requestPending;
 
     /// <summary>
     /// Your own always goes down last (user decision): it's selectable only once no bot turret is
@@ -126,7 +187,18 @@ public static class TeamTurretPool
     /// empty the bot queue.
     /// </summary>
     public static bool OwnSelectable(bool ownUndeployed, int availableBotTurrets) =>
-        ownUndeployed && availableBotTurrets <= 0;
+        OwnSelectable(ownUndeployed, availableBotTurrets, HostPoolStatus.Live);
+
+    /// <summary>
+    /// G.EZ-T124: with the host's pool unknown your own isn't selectable (it may not be last); with the
+    /// host known not to run the pool, it is (there's no bot queue to empty).
+    /// </summary>
+    public static bool OwnSelectable(bool ownUndeployed, int availableBotTurrets, HostPoolStatus status) => status switch
+    {
+        HostPoolStatus.Live => ownUndeployed && availableBotTurrets <= 0,
+        HostPoolStatus.Off => ownUndeployed,
+        _ => false,
+    };
 
     /// <summary>
     /// The Tool key: with your own sentry in hand, and in hand last frame too (so the press that
@@ -135,4 +207,59 @@ public static class TeamTurretPool
     /// </summary>
     public static ToolKeyAction DecideToolKey(bool absurdWeaponsCyclingOn, bool wieldingOwnSentry, bool wieldedToolLastFrame) =>
         !absurdWeaponsCyclingOn && wieldingOwnSentry && wieldedToolLastFrame ? ToolKeyAction.Cycle : ToolKeyAction.None;
+}
+
+/// <summary>G.EZ-T124: what a client knows about the host's team turret pool.</summary>
+public enum HostPoolStatus
+{
+    /// <summary>No fresh broadcast (not yet, or stale): bot turrets may still be queued - hold your own.</summary>
+    Unknown,
+    /// <summary>A fresh broadcast with the pool on: the bot turrets it lists are the truth.</summary>
+    Live,
+    /// <summary>The host says its pool is off, or never sent one: no bot queue - your own places like vanilla.</summary>
+    Off,
+}
+
+/// <summary>G.EZ-T124: the host's answer to a bot turret placement, sent back to the requester.</summary>
+public enum TurretPlaceResult : byte
+{
+    Placed = 1,
+    /// <summary>Already down - someone else got it first.</summary>
+    Taken = 2,
+    /// <summary>The placement itself didn't work (an error, a bad spot, the bot gone); the bot sits out for a few seconds.</summary>
+    Failed = 3,
+    /// <summary>The host has the team turret pool switched off.</summary>
+    Disabled = 4,
+}
+
+/// <summary>G.EZ-T124: the lines every player's event log shows for the team's turrets, so everyone's count agrees.</summary>
+public static class TeamTurretMessages
+{
+    public static string Left(int botTurretsLeft) =>
+        botTurretsLeft <= 0 ? "no bot turrets left" : $"{botTurretsLeft} bot turret{(botTurretsLeft == 1 ? "" : "s")} left";
+
+    public static string Placed(string actor, string turret, int botTurretsLeft) =>
+        $"{actor} placed {turret} - {Left(botTurretsLeft)}";
+
+    public static string Recalled(string actor, int botTurrets, bool ownToo, int botTurretsLeft, bool actorIsYou = false)
+    {
+        var whose = actorIsYou ? "your" : "their";
+        var what = botTurrets > 0
+            ? $"{botTurrets} bot turret{(botTurrets == 1 ? "" : "s")}{(ownToo ? $" and {whose} own" : "")}"
+            : $"{whose} own turret";
+        return $"{actor} recalled {what} - {Left(botTurretsLeft)}";
+    }
+
+    public static string Failed(string turret, float seconds) =>
+        $"{turret} couldn't be placed - out of the pool for {seconds:0} s";
+
+    public static string Refused(TurretPlaceResult reason, string turret, float failedSeconds) => reason switch
+    {
+        TurretPlaceResult.Taken => $"Someone else got {turret} first",
+        TurretPlaceResult.Disabled => "The host has the team turret pool switched off",
+        _ => Failed(turret, failedSeconds),
+    };
+
+    public const string Unknown = "Team turret pool unavailable (host)";
+    public const string HostOff = "Host isn't running the team turret pool - placing your own";
 }

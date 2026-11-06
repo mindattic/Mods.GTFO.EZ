@@ -89,6 +89,14 @@ weapon, and every ranged weapon archetype plus sentries - all left at vanilla by
   client's bot placement is a request the host checks against the team's current state - it places
   that bot's own turret only if it's still undeployed, so two players racing for the same one get
   one turret, never two. The turrets the team brought in are the only ones that are ever placed.
+  Everyone's count is the same (G.EZ-T124): every placement, failed placement and **Z** recall is
+  announced in every player's event log with who did it and how many bot turrets are left ("Erin
+  placed Woods's turret - 2 bot turrets left"). A client that hasn't heard from the host yet (or
+  for over 3 s) shows "Team turret pool unavailable (host)" and keeps holding its own turret rather
+  than counting 0 bot turrets; a host with the pool switched off - or one that never sends it (no
+  GTFO.EZ, or a build from before this change) for 10 s - is said so, and your own places like
+  vanilla. A refused request says why: someone else got it first, the host has the pool off, or the
+  placement failed (that bot's turret then sits out of the pool for 5 s, for everyone).
 
 | Input | Action |
 |---|---|
@@ -274,6 +282,12 @@ scheme at v17. Current release: v20.
   Tool-key collision guard with GTFO.EZ.AbsurdWeapons (which reads that mod's private gear-cycling
   flag by reflection, and falls back to "not on" if it can't) are all unconfirmed in play. G.EZ-T111's
   Multi-Sentry Cycling was removed: its fire-mode swaps equipped extra sentries.
+- G.EZ-T124's accuracy fixes to the pool also build and pass their decision tests but are unconfirmed
+  in play: the numbered pool states and request ids, the team-wide event-log lines, the "pool
+  unavailable (host)" hold and the 10 s fallback to your own, the failed-placement sit-out, and
+  whether the bot AI's own recall (PlayerBotActionGatherDeployables.PickUpItem) clears the bot's
+  deployed flag by itself - the interop stubs don't say, so half a second after Z the host clears it
+  only for a bot whose turret is no longer standing (logged when it has to).
 - Fog clearing is confirmed in play; its density is read from the vanilla
   Fog Repeller prefab at runtime (logged), with a Density Override if that doesn't clear fog.
 - Datablock patches can only be verified by launching the game; they have no automated test

@@ -79,6 +79,14 @@ its own, each with its own config section and on/off switch:
   client's bot placement is a request the host checks against the team's current state - it places
   that bot's own turret only if it's still undeployed, so two players racing for the same one get
   one turret, never two. The turrets the team brought in are the only ones that are ever placed.
+  Everyone's count is the same (G.EZ-T124): every placement, failed placement and **Z** recall is
+  announced in every player's event log with who did it and how many bot turrets are left ("Erin
+  placed Woods's turret - 2 bot turrets left"). A client that hasn't heard from the host yet (or
+  for over 3 s) shows "Team turret pool unavailable (host)" and keeps holding its own turret rather
+  than counting 0 bot turrets; a host with the pool switched off - or one that never sends it (no
+  GTFO.EZ, or a build from before this change) for 10 s - is said so, and your own places like
+  vanilla. A refused request says why: someone else got it first, the host has the pool off, or the
+  placement failed (that bot's turret then sits out of the pool for 5 s, for everyone).
 
 | Input | Action |
 |---|---|
@@ -557,6 +565,11 @@ others' prior work:
 
 ### Unreleased
 
+- **Team turret counts are accurate for every player**: placements, failed placements and Z recalls
+  show in everyone's event log with who did it and how many bot turrets are left; a client with no
+  fresh word from the host shows "Team turret pool unavailable (host)" and holds its own turret
+  instead of counting 0 bot turrets; a refused request says why (taken, failed, pool off); and a
+  recalled bot turret is made sure to come back into the pool.
 - **Shared team turret pool** replaces Multi-Sentry Cycling and the fixed bots-first E: with your
   sentry in hand, 4 cycles every bot turret still available to the whole team, E places the
   selected one at your ghost, your own goes down last, and clients can place bots' turrets too -
