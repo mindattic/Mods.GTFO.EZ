@@ -284,25 +284,22 @@ public class Plugin : BasePlugin
         var latest = reached;
         foreach (var (version, entry, oldDefault) in DefaultMigrations)
         {
-            if (reached < version) MigrateStaleDefault(entry(), oldDefault);
+            var f = entry();
+            if (GTFO.EZ.Core.ConfigMigrationRules.ShouldMigrate(reached, version, f.Value, oldDefault)) f.Value = (float)f.DefaultValue;
             latest = Math.Max(latest, version);
         }
         foreach (var (version, entry, oldDefault) in BoolDefaultMigrations)
         {
             var e = entry();
-            if (reached < version && e.Value == oldDefault) e.Value = (bool)e.DefaultValue;
+            if (GTFO.EZ.Core.ConfigMigrationRules.ShouldMigrate(reached, version, e.Value, oldDefault)) e.Value = (bool)e.DefaultValue;
             latest = Math.Max(latest, version);
         }
         ConfigMigrationVersion.Value = latest;
     }
 
-    // Reads the new default straight off the entry itself (ConfigEntryBase.DefaultValue) rather
-    // than taking it as a second parameter, so there's only ever one place (the Config.Bind call)
-    // that can get the "new" value wrong.
-    private static void MigrateStaleDefault(ConfigEntry<float> entry, float oldDefault)
-    {
-        if (entry.Value == oldDefault) entry.Value = (float)entry.DefaultValue;
-    }
+    // The new default is read straight off the entry itself (ConfigEntryBase.DefaultValue) rather
+    // than listed again, so there's only ever one place (the Config.Bind call) that can get the
+    // "new" value wrong. The decision itself is GTFO.EZ.Core.ConfigMigrationRules, unit tested.
 
     // Defaults follow community-consensus values rather than naive "bigger number" guesses:
     // health x2 is the one near-universal agreement among GTFO easy-mode mods (going further,

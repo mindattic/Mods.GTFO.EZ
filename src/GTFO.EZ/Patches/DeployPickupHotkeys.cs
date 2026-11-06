@@ -88,9 +88,9 @@ internal static class Hotkeys
 [HarmonyPatch(typeof(SentryGunFirstPerson), nameof(SentryGunFirstPerson.PlaceOnGround))]
 internal static class SentryGunFirstPerson_PlaceOnGround_ModifierGuard
 {
-    // With placement instant, a held E can re-trigger placement on the next frames; without this one
-    // press would dump every remaining turret (and then your own) on the same spot.
-    private const float TeamPlaceCooldown = 0.4f;
+    // With placement instant, a held E can re-trigger placement on the next frames; without the
+    // cooldown (TeamSentryRules.TeamPlaceCooldown) one press would dump every remaining turret (and
+    // then your own) on the same spot.
     private static float _lastTeamPlaceAt = -10f;
 
     [HarmonyPrefix]
@@ -103,25 +103,40 @@ internal static class SentryGunFirstPerson_PlaceOnGround_ModifierGuard
         // The press itself counts too: the sentry's own update can place it this frame before the
         // hotkey postfix has stamped ShiftEPressedAt (Unity doesn't order the two components).
         var pressedNow = Input.GetKeyDown(KeyCode.E);
-        if (Hotkeys.ShiftHeld && (pressedNow || Time.time - Hotkeys.ShiftEPressedAt <= Hotkeys.ShiftEPressWindow)) return false;
+        var shiftE = Hotkeys.ShiftHeld && (pressedNow || Time.time - Hotkeys.ShiftEPressedAt <= Hotkeys.ShiftEPressWindow);
 
-        return !TryPlaceNextBotInstead(__instance);
+        // Bots belong to the host; a client's E stays plain vanilla (just your own).
+        var wieldingTool = false;
+        var undeployed = 0;
+        if (!shiftE && SNet.IsMaster)
+        {
+            try
+            {
+                wieldingTool = PlayerManager.TryGetLocalPlayerAgent(out var agent)
+                    && agent?.Inventory != null && agent.Inventory.WieldedSlot == InventorySlot.GearClass;
+                if (wieldingTool) undeployed = BotDeployAtAim.CountUndeployedBotSentries();
+            }
+            catch (Exception e)
+            {
+                Plugin.Logger.LogWarning($"E: couldn't count bot turrets - placing your own instead. {e}");
+            }
+        }
+
+        // The decision is GTFO.EZ.Core.TeamSentryRules (unit tested); this only gathers the inputs.
+        return GTFO.EZ.Core.TeamSentryRules.Decide(shiftE, Time.time - _lastTeamPlaceAt, SNet.IsMaster, wieldingTool, undeployed) switch
+        {
+            GTFO.EZ.Core.TeamSentryPlacement.HoldOwn => false,
+            GTFO.EZ.Core.TeamSentryPlacement.PlaceBotInstead => !TryPlaceNextBotInstead(__instance),
+            _ => true,
+        };
     }
 
-    // True when a bot's sentry went down in place of your own (or the same press is still settling),
-    // so the vanilla placement of your own is skipped and it stays in your hands.
+    // True when a bot's sentry went down in place of your own, so the vanilla placement of your own
+    // is skipped and it stays in your hands.
     private static bool TryPlaceNextBotInstead(SentryGunFirstPerson own)
     {
-        if (Time.time - _lastTeamPlaceAt < TeamPlaceCooldown) return true;
-        // Bots belong to the host; a client's E stays plain vanilla (just your own).
-        if (!SNet.IsMaster) return false;
-
         try
         {
-            if (!PlayerManager.TryGetLocalPlayerAgent(out var agent) || agent?.Inventory == null) return false;
-            if (agent.Inventory.WieldedSlot != InventorySlot.GearClass) return false;
-            if (BotDeployAtAim.CountUndeployedBotSentries() == 0) return false;
-
             var pose = new Pose(own.m_placePos, own.m_cameraLookRot);
             if (!BotDeployAtAim.DeployBotAt(pose, "E")) return false;
 
