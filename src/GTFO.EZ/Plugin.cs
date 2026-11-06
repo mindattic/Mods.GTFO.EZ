@@ -102,6 +102,8 @@ public class Plugin : BasePlugin
     // confirmed safe by decompiling alone - may be reverted if it doesn't hold up in play.
     // Since G.EZ-T120 it also switches the shared team turret pool (Patches/TeamTurrets.cs).
     internal static ConfigEntry<bool> BotsDeployOnShiftE = null!;
+    // G.EZ-T123 - see Patches/FullAmmoOnDrop.cs.
+    internal static ConfigEntry<bool> FullAmmoOnDrop = null!;
 
     // G.EZ-T39 - see Patches/FogClearPulse.cs.
     internal static ConfigEntry<bool> FogClearEnabled = null!;
@@ -774,6 +776,11 @@ public class Plugin : BasePlugin
             "(the marker shows for 10 s). Same-zone pings and unknown keys are left to the game's own PING, and any " +
             "error falls back to it too. Technique credit: BetterTerminal by AlexanderMakunin (MIT). Set to false if a " +
             "terminal misbehaves.");
+
+        FullAmmoOnDrop = Config.Bind("Expedition Resources", "Full Ammo On Drop", true,
+            "Every player and the host's bots drop into a level with full main, special and tool (sentry) reserves and every "+
+            "magazine loaded, instead of the expedition's partial starting supplies. Once per drop; a checkpoint restart keeps "+
+            "what the checkpoint saved.");
 
         BotsDeployOnShiftE = Config.Bind("Experimental", "Bots Deploy On Shift+E (SPIKE)", true,
             "Shared team turret pool (G.EZ-T120): with your own sentry in hand, every bot's undeployed sentry " +
