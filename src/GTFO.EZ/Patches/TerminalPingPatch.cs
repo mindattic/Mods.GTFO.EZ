@@ -72,11 +72,21 @@ internal static class TerminalPing_EvaluateInput_Patch
         return key.Length > 0;
     }
 
-    private static iTerminalItem? FindItem(string key)
+    // G.EZ-T118: this used to look the key up in LG_LevelInteractionManager.m_terminalItemsByKeyString,
+    // but that's an Il2Cpp Dictionary<string, iTerminalItem> - an interface value type Il2CppInterop
+    // can't build, so every call threw "MissingMethodException: System.__Canon..ctor(IntPtr)" and every
+    // cross-zone PING silently fell back to vanilla's same-zone one. Terminal items (consumables,
+    // containers, doors, generators...) are LG_GenericTerminalItem components, a concrete class, so
+    // the key is matched against those instead. Prefab copies outside the level have no SpawnNode.
+    private static LG_GenericTerminalItem? FindItem(string key)
     {
-        var items = LG_LevelInteractionManager.Current?.m_terminalItemsByKeyString;
-        if (items == null) return null;
-        return items.TryGetValue(key, out var item) ? item : null;
+        foreach (var obj in Resources.FindObjectsOfTypeAll(Il2CppInterop.Runtime.Il2CppType.Of<LG_GenericTerminalItem>()))
+        {
+            var item = obj?.TryCast<LG_GenericTerminalItem>();
+            if (item == null || item.SpawnNode == null) continue;
+            if (string.Equals(item.TerminalItemKey, key, StringComparison.OrdinalIgnoreCase)) return item;
+        }
+        return null;
     }
 
     // Same shape vanilla's own command output takes - blank line, prompt + command, separator,
@@ -123,7 +133,7 @@ internal static class TerminalPingAnywhere
     private static uint? _activeId;
     private static float _expiresAt;
 
-    internal static void Ping(iTerminalItem item)
+    internal static void Ping(LG_GenericTerminalItem item)
     {
         Clear();
         var position = item.LocatorBeaconPosition;
