@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **GTFO.EZ.AbsurdItems' level settings follow the host too (G.EZ-T128):** its kit loot and Loot Mix
+  (`[Loot]`), the Frag Grenade / Plasma Grenade / Stim Pack switches and the grenade pickup counts used
+  to come from each player's own `.cfg`, so a client could get different loot than the host - only a
+  warning said so. The host now sends them with its own level settings, and in someone else's lobby
+  your AbsurdItems uses them (your `.cfg` isn't touched) before the level is built. Needs
+  GTFO.EZ.AbsurdItems' next release; an older one keeps its own values and the warning.
 - **Level settings follow the host (G.EZ-T125):** every game builds the level from its own data, and
   GTFO.EZ shaped that data from each player's own `.cfg` - so a host and a client with different
   Expedition Resources/Enemies/Level Gen/Doors, Artifact Spawns or Loot settings generated different

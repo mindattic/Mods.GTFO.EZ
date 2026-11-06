@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
+using System.Reflection;
 using BepInEx.Configuration;
 using BepInEx.Unity.IL2CPP;
 using GameData;
@@ -75,8 +77,16 @@ internal static class LevelSettings
         return list;
     }
 
-    /// <summary>What the level datablocks hold once the tweaks run with the effective values.</summary>
-    internal static ulong EffectiveSignature() => LevelFingerprint.Compute(EffectiveValues(), 0);
+    /// <summary>
+    /// What the level datablocks hold once the tweaks run with the effective values - GTFO.EZ's and
+    /// GTFO.EZ.AbsurdItems' (whose kit loot is run again with them, G.EZ-T128).
+    /// </summary>
+    internal static ulong EffectiveSignature()
+    {
+        var values = EffectiveValues();
+        values.AddRange(AbsurdItemsLevel.Effective());
+        return LevelFingerprint.Compute(values, 0);
+    }
 
     internal static float? ToFloat(object? value) => value switch
     {
@@ -112,36 +122,38 @@ internal static class ModFingerprints
         {
             new(Plugin.NAME, true, LevelFingerprint.Compute(LevelSettings.Local(), 0), 0),
         };
-        list.Add(Other("GTFO.EZ.AbsurdItems", AbsurdItemsGuid, AbsurdItemsLevelSetting,
+        list.Add(Other(AbsurdItemsLevel.Name, AbsurdItemsGuid, AbsurdItemsLevel.IsLevelSetting,
             () => Mask(AbsurdItemsItems, id => GameDataBlockBase<ItemDataBlock>.HasBlock(id))));
         list.Add(Other("GTFO.EZ.AbsurdWeapons", AbsurdWeaponsGuid, _ => false,
             () => Mask(AbsurdWeaponsGear, id => GameDataBlockBase<GearCategoryDataBlock>.HasBlock(id))));
         return list;
     }
 
-    // AbsurdItems' settings that shape a level: the kit loot and Loot Mix ([Loot], all of it), which
-    // of its items may spawn, and how many grenades a pickup holds (rolled from the level seed).
-    // GAI-T37 split the Hand Grenade into the Frag and Plasma Grenades, each with its own section.
-    private static bool AbsurdItemsLevelSetting(ConfigDefinition d) =>
-        d.Section == "Loot"
-        || (d.Section is "Frag Grenade" or "Plasma Grenade" or "Hand Grenade"
-            && d.Key is "Frag Grenade Enabled" or "Plasma Grenade Enabled" or "Hand Grenade Enabled" or "PickupCountMin" or "PickupCountMax")
-        || (d.Section == "Stim Pack" && d.Key == "Stim Pack Enabled");
+    /// <summary>Another GTFO.* mod's plugin, when it's installed and switched on.</summary>
+    internal static BasePlugin? ActivePlugin(string guid) =>
+        SharedOwner.IsActive(guid) && IL2CPPChainloader.Instance.Plugins.TryGetValue(guid, out var info)
+            && info.Instance is BasePlugin plugin ? plugin : null;
+
+    /// <summary>A plugin's level-affecting settings off its own config ("Section/Key", a bool as 1/0).</summary>
+    internal static List<LevelSetting> Settings(BasePlugin plugin, Func<ConfigDefinition, bool> isLevel)
+    {
+        var settings = new List<LevelSetting>();
+        foreach (var pair in plugin.Config)
+        {
+            if (!isLevel(pair.Key)) continue;
+            var value = LevelSettings.ToFloat(pair.Value.BoxedValue);
+            if (value != null) settings.Add(new LevelSetting(LevelSettings.Key(pair.Key), value.Value));
+        }
+        return settings;
+    }
 
     private static ModFingerprint Other(string name, string guid, Func<ConfigDefinition, bool> isLevel, Func<ulong> mask)
     {
         try
         {
-            if (!SharedOwner.IsActive(guid) || !IL2CPPChainloader.Instance.Plugins.TryGetValue(guid, out var info)
-                || info.Instance is not BepInEx.Unity.IL2CPP.BasePlugin plugin)
-                return new ModFingerprint(name, false, 0, 0);
-            var settings = new List<LevelSetting>();
-            foreach (var pair in plugin.Config)
-            {
-                if (!isLevel(pair.Key)) continue;
-                var value = LevelSettings.ToFloat(pair.Value.BoxedValue);
-                if (value != null) settings.Add(new LevelSetting(LevelSettings.Key(pair.Key), value.Value));
-            }
+            var plugin = ActivePlugin(guid);
+            if (plugin == null) return new ModFingerprint(name, false, 0, 0);
+            var settings = Settings(plugin, isLevel);
             var m = mask();
             return new ModFingerprint(name, true, LevelFingerprint.Compute(settings, m), m);
         }
@@ -158,6 +170,124 @@ internal static class ModFingerprints
         for (var i = 0; i < ids.Length; i++) present[i] = has(ids[i]);
         return LevelFingerprint.Mask(present);
     }
+}
+
+/// <summary>
+/// G.EZ-T128 (GAI-T40): GTFO.EZ.AbsurdItems' level-affecting settings follow the host too. The host
+/// sends them with its own level values, each key prefixed with <see cref="WirePrefix"/> (both mods
+/// have a [Loot] section); a client hands the host's to AbsurdItems' public
+/// <c>GTFO.EZ.AbsurdItems.HostLevelSettings</c> (found by reflection - an older AbsurdItems without it
+/// keeps its own values and the fingerprint warning) before the level tweaks and AbsurdItems' kit loot
+/// are run again. AbsurdItems reads them instead of its .cfg, which is never written.
+/// </summary>
+internal static class AbsurdItemsLevel
+{
+    internal const string Name = "GTFO.EZ.AbsurdItems";
+    internal const string WirePrefix = "GTFO.EZ.AbsurdItems|";
+    private const string Guid = "MindAttic.GTFO.EZ.AbsurdItems";
+    private const string HookType = "GTFO.EZ.AbsurdItems.HostLevelSettings";
+
+    private static bool _looked;
+    private static MethodInfo? _set;
+    private static string? _pushed;
+
+    // AbsurdItems' settings that shape a level: the kit loot and Loot Mix ([Loot], all of it), which
+    // of its items may spawn, and how many grenades a pickup holds (rolled from the level seed).
+    // GAI-T37 split the Hand Grenade into the Frag and Plasma Grenades, each with its own section.
+    internal static bool IsLevelSetting(ConfigDefinition d) =>
+        d.Section == "Loot"
+        || (d.Section is "Frag Grenade" or "Plasma Grenade" or "Hand Grenade"
+            && d.Key is "Frag Grenade Enabled" or "Plasma Grenade Enabled" or "Hand Grenade Enabled" or "PickupCountMin" or "PickupCountMax")
+        || (d.Section == "Stim Pack" && d.Key == "Stim Pack Enabled");
+
+    /// <summary>Its level settings off its own .cfg (none when it isn't installed or is off).</summary>
+    internal static List<LevelSetting> Local()
+    {
+        try
+        {
+            var plugin = ModFingerprints.ActivePlugin(Guid);
+            return plugin == null ? new List<LevelSetting>() : ModFingerprints.Settings(plugin, IsLevelSetting);
+        }
+        catch (Exception e)
+        {
+            Plugin.Logger.LogWarning($"Level settings sync: couldn't read {Name}'s settings: {e.Message}");
+            return new List<LevelSetting>();
+        }
+    }
+
+    /// <summary>Its level settings as the host sends them (prefixed keys).</summary>
+    internal static List<LevelSetting> Wire()
+    {
+        var list = Local();
+        for (var i = 0; i < list.Count; i++) list[i] = list[i] with { Key = WirePrefix + list[i].Key };
+        return list;
+    }
+
+    /// <summary>Whether this AbsurdItems takes the host's values (has the hook).</summary>
+    internal static bool FollowsHost => Hook() != null;
+
+    /// <summary>The values its kit loot uses now (prefixed keys): the host's where held and taken, else its own.</summary>
+    internal static List<LevelSetting> Effective()
+    {
+        var list = Wire();
+        if (!FollowsHost) return list;
+        for (var i = 0; i < list.Count; i++) list[i] = list[i] with { Value = LevelSettings.Host.Resolve(list[i].Key, list[i].Value) };
+        return list;
+    }
+
+    /// <summary>
+    /// Hands AbsurdItems the host's values for its settings (none: back to its own), when they changed
+    /// since the last time. Called before every apply check, so they're in place before a re-apply.
+    /// </summary>
+    internal static void Push()
+    {
+        var set = Hook();
+        if (set == null) return;
+        var values = new Dictionary<string, float>(StringComparer.Ordinal);
+        if (LevelSettings.Host.Active)
+            foreach (var s in Local())
+                if (LevelSettings.Host.TryGet(WirePrefix + s.Key, out var host)) values[s.Key] = host;
+
+        var keys = new List<string>(values.Keys);
+        keys.Sort(StringComparer.Ordinal);
+        var state = string.Join(";", keys.ConvertAll(k => k + "=" + values[k].ToString("R", CultureInfo.InvariantCulture)));
+        if (state == _pushed) return;
+        _pushed = state; // tried once per change; a failure is said once, not every second
+        try
+        {
+            set.Invoke(null, new object?[] { values });
+        }
+        catch (Exception e)
+        {
+            Plugin.Logger.LogWarning($"Level settings sync: couldn't hand {Name} the host's values - its loot uses your own: {e.InnerException?.Message ?? e.Message}");
+        }
+    }
+
+    private static MethodInfo? Hook()
+    {
+        if (_looked) return _set;
+        var plugin = ModFingerprints.ActivePlugin(Guid);
+        if (plugin == null) return null; // looked for again later
+        _looked = true;
+        try
+        {
+            _set = plugin.GetType().Assembly.GetType(HookType, false)
+                ?.GetMethod("Set", BindingFlags.Public | BindingFlags.Static, null, new[] { typeof(IDictionary<string, float>) }, null);
+        }
+        catch (Exception e)
+        {
+            Plugin.Logger.LogWarning($"Level settings sync: couldn't look for {Name}'s host-settings hook: {e.Message}");
+        }
+        Plugin.Logger.LogInfo(_set != null
+            ? $"Level settings sync: {Name}'s level settings follow the host too."
+            : $"Level settings sync: this {Name} can't take the host's level settings (an older version?) - a difference there is only warned about.");
+        return _set;
+    }
+
+    /// <summary>Whether a fingerprint difference line is settled by using the host's values.</summary>
+    internal static bool Fixes(string line) =>
+        line.StartsWith(Plugin.NAME + ":", StringComparison.Ordinal)
+        || (FollowsHost && line.StartsWith(Name + ": level settings differ", StringComparison.Ordinal));
 }
 
 /// <summary>
@@ -284,6 +414,7 @@ internal static class LevelSettingsSync
     {
         var mods = ModFingerprints.Local();
         var values = LevelSettings.Local();
+        values.AddRange(AbsurdItemsLevel.Wire()); // G.EZ-T128
         hash = LevelFingerprint.Compute(values, 0);
         foreach (var m in mods) hash = hash * 31 + m.SettingsHash + m.InjectedMask + (m.Installed ? 1UL : 0UL);
         return LevelSettingsCodec.EncodeHost(mods, values);
@@ -317,7 +448,9 @@ internal static class LevelSettingsSync
         }
         var differences = FingerprintComparison.Differences(ModFingerprints.Local(), theirs, Name(sender));
         foreach (var line in differences)
-            Notify($"{Name(sender)}: {line}" + (line.StartsWith(Plugin.NAME + ":") ? " - their game uses your GTFO.EZ level settings" : " - their level may differ from yours"));
+            Notify($"{Name(sender)}: {line}" + (line.StartsWith(Plugin.NAME + ":") ? " - their game uses your GTFO.EZ level settings"
+                : line.StartsWith(AbsurdItemsLevel.Name + ": level settings differ", StringComparison.Ordinal) ? " - their game uses yours if its GTFO.EZ.AbsurdItems is up to date"
+                : " - their level may differ from yours"));
         if (differences.Count == 0) Plugin.Logger.LogInfo($"Level settings sync: {Name(sender)}'s level settings match yours.");
 
         if (SNet.TryGetPlayer(sender, out var player) && player != null)
@@ -347,11 +480,12 @@ internal static class LevelSettingsSync
         {
             _lastHostDifferences = joined;
             foreach (var line in differences)
-                Notify(line + (line.StartsWith(Plugin.NAME + ":") ? " - using the host's" : " - your level may differ from the host's"));
+                Notify(line + (AbsurdItemsLevel.Fixes(line) ? " - using the host's" : " - your level may differ from the host's"));
         }
         if (first)
         {
             var local = LevelSettings.Local();
+            if (AbsurdItemsLevel.FollowsHost) local.AddRange(AbsurdItemsLevel.Wire());
             var replaced = LevelSettings.Host.Differences(local);
             foreach (var (key, mine, host) in replaced) Plugin.Logger.LogInfo($"Level settings sync: [{key}] {mine} -> host's {host}");
             foreach (var key in LevelSettings.Host.Missing(local)) Plugin.Logger.LogInfo($"Level settings sync: the host didn't send [{key}] - your own value stays.");
@@ -363,6 +497,7 @@ internal static class LevelSettingsSync
     // The datablocks always hold what's wanted now, unless a level is already built from them.
     private static void EnsureApplied()
     {
+        AbsurdItemsLevel.Push(); // G.EZ-T128: AbsurdItems holds the wanted values before any re-apply
         var decision = LevelSyncRules.Decide(GameDataInit_Initialize_Patch.LevelSnapshotTaken,
             GameDataInit_Initialize_Patch.AppliedLevelSignature, LevelSettings.EffectiveSignature(), _levelBuilt);
         switch (decision)

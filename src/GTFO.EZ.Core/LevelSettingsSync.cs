@@ -149,6 +149,13 @@ public sealed class LevelOverrides
     public float Resolve(string key, float local) =>
         Active && _values.TryGetValue(LevelFingerprint.KeyHash(key), out var host) ? host : local;
 
+    /// <summary>The host's value for this setting, when active and the host sent it.</summary>
+    public bool TryGet(string key, out float value)
+    {
+        value = 0f;
+        return Active && _values.TryGetValue(LevelFingerprint.KeyHash(key), out value);
+    }
+
     /// <summary>The local settings whose value the host's replaces (key, yours, host's).</summary>
     public List<(string Key, float Local, float Host)> Differences(IEnumerable<LevelSetting> local)
     {

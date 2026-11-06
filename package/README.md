@@ -520,8 +520,8 @@ without GTFO.EZ installed, too.
   as it is. Everything else (your health, stamina, movement, weapons, controls) stays your own. When
   you join, your game and the host's compare a fingerprint of every GTFO.* mod's level settings and
   added items/weapons, and anything that differs is named in the event log (the host's names you).
-  GTFO.EZ.AbsurdItems' own loot settings don't follow the host yet - a difference there is only
-  warned about - so keep its `[Loot]` and Frag/Plasma Grenade pickup counts the same as the host's.
+  GTFO.EZ.AbsurdItems' level settings - its `[Loot]` (kit loot and Loot Mix), which grenades and Stim
+  Packs may spawn, and the Frag/Plasma Grenade pickup counts - follow the host the same way.
 - **Turning a mod off:** every GTFO.* mod's `.cfg` starts with `[0. Mod] Enabled`; set it to
   `false` and that mod loads nothing, and the others treat it as not installed.
 - **GTFO.EZ.AbsurdMoves:** compatible - the dash that used to be in this mod lives there now, as its
@@ -574,6 +574,9 @@ others' prior work:
 
 ### Unreleased
 
+- **GTFO.EZ.AbsurdItems' level settings follow the host too**: its kit loot, Loot Mix, grenade and
+  Stim Pack switches and grenade pickup counts are the host's in someone else's lobby (needs its next
+  release), so everyone's loot matches.
 - **Level settings follow the host**: in someone else's lobby, every setting that shapes the level
   (Expedition Resources/Enemies/Level Gen/Doors, Artifact Spawns, Loot) uses the host's value, so
   everyone builds the same level; your `.cfg` isn't touched and your own health, stamina, weapons and

@@ -132,6 +132,21 @@ public class LevelSettingsSyncTests
     }
 
     [Test]
+    public void Overrides_TryGetOnlyWhatTheHostSent()
+    {
+        // G.EZ-T128: GTFO.EZ.AbsurdItems' settings ride along under their own prefix, so its [Loot]
+        // never collides with GTFO.EZ's.
+        var overrides = new LevelOverrides();
+        Assert.That(overrides.TryGet("GTFO.EZ.AbsurdItems|Loot/A", out _), Is.False);
+        overrides.Set(new Dictionary<uint, float> { [LevelFingerprint.KeyHash("GTFO.EZ.AbsurdItems|Loot/A")] = 3f, [LevelFingerprint.KeyHash("Loot/A")] = 5f });
+        Assert.That(overrides.TryGet("GTFO.EZ.AbsurdItems|Loot/A", out var value), Is.True);
+        Assert.That(value, Is.EqualTo(3f));
+        Assert.That(overrides.TryGet("GTFO.EZ.AbsurdItems|Loot/B", out _), Is.False);
+        overrides.Clear();
+        Assert.That(overrides.TryGet("GTFO.EZ.AbsurdItems|Loot/A", out _), Is.False);
+    }
+
+    [Test]
     public void Overrides_ListDifferencesAndMissing()
     {
         var overrides = new LevelOverrides();

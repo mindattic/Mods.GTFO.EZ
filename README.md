@@ -298,8 +298,9 @@ scheme at v17. Current release: v20.
   re-running GTFO.EZ.AbsurdItems' kit-loot postfix (found by owner and type name among GameDataInit's
   patches) gives the same tables as at startup; and that the event log is visible in the lobby (every
   notice is shown again when the level starts). GTFO.EZ.AbsurdItems' level settings (kit loot, Loot
-  Mix, Frag/Plasma Grenade pickup counts) are fingerprinted and warned about but still come from each
-  player's own config.
+  Mix, Frag/Plasma Grenade pickup counts and switches) follow the host too (G.EZ-T128/GAI-T40): handed
+  to its public `HostLevelSettings` hook by reflection before the re-apply, also unconfirmed in play
+  (an older AbsurdItems without the hook keeps its own values and is only warned about).
 - Fog clearing is confirmed in play; its density is read from the vanilla
   Fog Repeller prefab at runtime (logged), with a Density Override if that doesn't clear fog.
 - Datablock patches can only be verified by launching the game; they have no automated test
