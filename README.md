@@ -66,34 +66,37 @@ weapon, and every ranged weapon archetype plus sentries - all left at vanilla by
 **Experimental** (`Experimental` config section; see Limitations below):
 
 - **Bot tool controls** (on by default): aim your own sentry's placement ghost and press
-  **Shift+E** to drop the next bot's equipped tool there instead of yours; **X** drops the next
-  turret wherever you're currently standing and looking instead - no aiming needed - every bot that
-  still has one undeployed, one per press, then finally your own; **Z** instantly recalls every
-  bot-placed tool back into its bot, and your own placed sentry back into your inventory too, all at
-  once. Shift+E and the bot half of X and Z only work for the host (bots belong to the host); your
-  own half of X and Z works for everyone.
+  **Shift+E** to place a bot's turret there (the selected one, else the next; never yours); **X**
+  drops the next turret wherever you're currently standing and looking instead - no aiming needed -
+  every available bot turret first, one per press, then finally your own; **Z** instantly recalls
+  every bot-placed turret back into its bot, and your own placed sentry back into your inventory
+  too, all at once. All of them work for clients too: the bot half is asked of the host, which owns
+  the bots.
 - **Ping Anywhere** (on by default): `PING <KEY>` from any terminal reaches an item anywhere in
   the level, not just the terminal's own zone. Same-zone pings are left to the game's own PING.
   Technique credit: [BetterTerminal](https://github.com/AlexanderMakunin/BetterTerminal) by
   AlexanderMakunin (MIT).
-- **Multi-Sentry Cycling** (new in v20, on by default): while your Tool slot is wielded, pressing
-  its select key again (4 by default) swaps your Sentry Gun to the next of four real vanilla
-  fire-mode variants (burst, staggering auto, sniper semi, shotgun) instead of just the one you
-  loaded out with; your own turret goes down as whichever variant you've cycled to.
-- **Team placement with E** (G.EZ-T116, part of Bot tool controls): as host, while any bot still
-  carries an undeployed sentry, each E press while aiming your own sentry places the next bot's
-  sentry at your ghost and keeps yours in hand for the next press; your own goes down last, and only
-  then does slot 4 put itself away and return your previous weapon.
+- **Shared team turret pool** (G.EZ-T120, on by default, part of Bot tool controls): with your own
+  sentry in hand, every bot's sentry that isn't down is yours to place too - one pool shared by
+  every player, host and clients alike. Pressing **4** again cycles the bot turrets still
+  available, with a label naming whose turret is selected and how many bot turrets are left before
+  yours; **E** places the selected one at your placement ghost and keeps yours in hand, ghost and
+  all. If someone else places the bot turret you have selected, you move on to the next one by
+  yourself. Your own always goes down last, once no bot turret is left (placed by anyone), and only
+  then does slot 4 put itself away and return your previous weapon. Bots belong to the host: a
+  client's bot placement is a request the host checks against the team's current state - it places
+  that bot's own turret only if it's still undeployed, so two players racing for the same one get
+  one turret, never two. The turrets the team brought in are the only ones that are ever placed.
 
 | Input | Action |
 |---|---|
-| E (aiming your sentry) | Place the next turret - bots' first (host only), yours last - instant; back to your previous weapon once all are down |
-| Shift+E (aiming your sentry) | Place the next bot's tool at your aim instead (host only) |
+| E (aiming your sentry) | Place the selected turret - every bot's first, yours last - instant; back to your previous weapon once yours is down |
+| 4 (sentry in hand, pressed again) | Cycle the selection among the bot turrets still available |
+| Shift+E (aiming your sentry) | Place a bot's turret at your aim (never yours) |
 | Insert | Infinite health on/off |
 | Delete | Infinite ammo on/off |
-| X | Drop the next turret at your current position/orientation - bots first (host only), then your own |
-| Z | Recall every bot-placed tool (host only) and your own placed sentry, all at once |
-| 4 (Tool wielded, pressed again) | Cycle your Sentry Gun to the next of four fire-mode variants |
+| X | Drop the next turret at your current position/orientation - bots first, then your own |
+| Z | Recall every bot-placed turret and your own placed sentry, all at once |
 
 ## Quick start
 
@@ -263,10 +266,12 @@ scheme at v17. Current release: v20.
   and Z's own-sentry recall (v19) compile against the real interop assemblies and are placement/
   pickup calls proven safe elsewhere in this mod, but haven't yet been confirmed in an actual play
   session.
-- Multi-Sentry Cycling (v20) swaps gear via the same `PlayerBackpackManager.EquipLocalGear` call
-  GTFO.EZ.AbsurdWeapons' gear cycling already uses in play, onto four real vanilla fire-mode blocks
-  confirmed to exist by logging the game's own data at boot - but the cycling itself hasn't yet been
-  confirmed in an actual play session.
+- The shared team turret pool (G.EZ-T120) builds and passes its decision tests headless, but none
+  of it has run in a game yet: the host/client requests over GTFO-API, the host's pool broadcast,
+  a client placing a bot's turret, the auto-advance when someone else takes your selection, and the
+  Tool-key collision guard with GTFO.EZ.AbsurdWeapons (which reads that mod's private gear-cycling
+  flag by reflection, and falls back to "not on" if it can't) are all unconfirmed in play. G.EZ-T111's
+  Multi-Sentry Cycling was removed: its fire-mode swaps equipped extra sentries.
 - Fog clearing is confirmed in play; its density is read from the vanilla
   Fog Repeller prefab at runtime (logged), with a Density Override if that doesn't clear fog.
 - Datablock patches can only be verified by launching the game; they have no automated test

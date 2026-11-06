@@ -51,59 +51,6 @@ public class BalanceMathOverflowTests
         Assert.That(BalanceMath.ScaleIntDown(460, 1e7f), Is.EqualTo(int.MaxValue));
 }
 
-[TestFixture]
-public class TeamSentryRulesTests
-{
-    private const float LongAgo = 10f;
-
-    [Test]
-    public void Host_WithBotTurretsLeft_PlacesABotsTurretAndKeepsOwnInHand() =>
-        Assert.That(TeamSentryRules.Decide(false, LongAgo, isHost: true, wieldingTool: true, undeployedBotSentries: 3),
-            Is.EqualTo(TeamSentryPlacement.PlaceBotInstead));
-
-    [Test]
-    public void Host_AllBotTurretsDown_PlacesOwnLast() =>
-        Assert.That(TeamSentryRules.Decide(false, LongAgo, true, true, 0), Is.EqualTo(TeamSentryPlacement.PlaceOwn));
-
-    [Test]
-    public void ShiftE_NeverPlacesOwn() =>
-        Assert.That(TeamSentryRules.Decide(shiftEActive: true, LongAgo, true, true, 0), Is.EqualTo(TeamSentryPlacement.HoldOwn));
-
-    [Test]
-    public void HeldE_InsideCooldown_PlacesNothing()
-    {
-        Assert.That(TeamSentryRules.Decide(false, 0.1f, true, true, 2), Is.EqualTo(TeamSentryPlacement.HoldOwn));
-        // ...including your own right after the last bot's went down.
-        Assert.That(TeamSentryRules.Decide(false, 0.1f, true, true, 0), Is.EqualTo(TeamSentryPlacement.HoldOwn));
-    }
-
-    [Test]
-    public void Client_PlacesOnlyOwn() =>
-        Assert.That(TeamSentryRules.Decide(false, LongAgo, isHost: false, true, 3), Is.EqualTo(TeamSentryPlacement.PlaceOwn));
-
-    // The whole sequence the user asked for: 3 bots + you = 4 presses, slot 4 kept until the last.
-    [Test]
-    public void FourPressSequence_ThreeBotsThenOwn()
-    {
-        var bots = 3;
-        var t = 0f;
-        var lastTeamPlace = -10f;
-        var placements = new List<TeamSentryPlacement>();
-        for (var press = 0; press < 4; press++, t += 1f)
-        {
-            var d = TeamSentryRules.Decide(false, t - lastTeamPlace, true, true, bots);
-            placements.Add(d);
-            if (d == TeamSentryPlacement.PlaceBotInstead) { bots--; lastTeamPlace = t; }
-        }
-
-        Assert.That(placements, Is.EqualTo(new[]
-        {
-            TeamSentryPlacement.PlaceBotInstead, TeamSentryPlacement.PlaceBotInstead,
-            TeamSentryPlacement.PlaceBotInstead, TeamSentryPlacement.PlaceOwn,
-        }));
-    }
-}
-
 // Guards that the shipped plugin source still wires the fixes in - the plugin project can't be
 // loaded outside the game, so these read Plugin.cs / DeployPickupHotkeys.cs directly.
 [TestFixture]

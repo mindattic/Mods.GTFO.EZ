@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- Shared team turret pool replaces Multi-Sentry Cycling and the fixed bots-first E: with your sentry
+  in hand, 4 cycles every bot turret still available to the whole team, E places the selected one at
+  your ghost, your own goes down last, and clients can place bots' turrets too - each asked of the
+  host, which only places a bot's own turret if it's still undeployed, so no turret is ever
+  duplicated. Shift+E, X and Z draw on the same pool.
+- Multi-Sentry Cycling removed: its fire-mode swaps equipped an extra sentry each time.
+
 ## v20
 
 - Updated the BepInEx dependency to BepInExPack_GTFO 3.2.4.

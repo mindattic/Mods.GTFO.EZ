@@ -100,12 +100,8 @@ public class Plugin : BasePlugin
     // G.EZ-T34 spike - see Patches/DeployPickupHotkeys.cs. On by default at the user's request to
     // test it live; calls private bot-AI methods directly and is only confirmed to compile, not
     // confirmed safe by decompiling alone - may be reverted if it doesn't hold up in play.
+    // Since G.EZ-T120 it also switches the shared team turret pool (Patches/TeamTurrets.cs).
     internal static ConfigEntry<bool> BotsDeployOnShiftE = null!;
-
-    // G.EZ-T111 spike - see Patches/MultiTurretTest.cs. Test 1: the local player cycles their Tool
-    // slot through four real vanilla Sentry Gun fire-mode variants instead of just the one they
-    // loaded out with, so one player can have several turrets down at once.
-    internal static ConfigEntry<bool> MultiSentryCyclingEnabled = null!;
 
     // G.EZ-T39 - see Patches/FogClearPulse.cs.
     internal static ConfigEntry<bool> FogClearEnabled = null!;
@@ -780,20 +776,18 @@ public class Plugin : BasePlugin
             "terminal misbehaves.");
 
         BotsDeployOnShiftE = Config.Bind("Experimental", "Bots Deploy On Shift+E (SPIKE)", true,
-            "G.EZ-T34 spike: while you're aiming your own equipped tool at a valid placement spot (the normal " +
-            "green ghost/arrow), Shift+E deploys the first bot with an undeployed tool there instead, reusing " +
-            "that same aim - your own plain-E placement is untouched. Calls the bot AI's own placement method " +
-            "directly since there's no vanilla order for 'deploy now' - only confirmed to compile, not confirmed " +
-            "safe by decompiling alone. This switch also covers the other experimental sentry keys - X (drop the " +
-            "next turret at your current position/orientation: bots first, then your own) and Z (recall every " +
-            "bot-placed tool and your own placed sentry, all at once) - so false turns all of them off. On by " +
-            "default to test live.");
+            "Shared team turret pool (G.EZ-T120): with your own sentry in hand, every bot's undeployed sentry " +
+            "is yours to place too, shared with every other player - 4 (pressed again) cycles the bot turrets " +
+            "still available, E places the selected one at your ghost and keeps yours in hand, and your own " +
+            "goes down last, once no bot turret is left. Shift+E places a bot's at your ghost (never yours), " +
+            "X drops the next one at your feet (bots first, then yours) and Z recalls every bot-placed turret " +
+            "and your own. Bots belong to the host, so a client's bot placement is asked of the host, which " +
+            "places it only if that bot's sentry is still undeployed - never a duplicate. The whole host and " +
+            "every client need this on; false turns all of it off.");
 
-        MultiSentryCyclingEnabled = Config.Bind("Experimental", "Multi-Sentry Cycling (SPIKE)", true,
-            "G.EZ-T111 spike, test 1: while your Tool slot is wielded, pressing its select key again cycles your " +
-            "Sentry Gun through four real vanilla fire-mode variants (burst, staggering auto, sniper semi, " +
-            "shotgun) instead of just the one you loaded out with - each one placed normally with E, so one " +
-            "player can have several different turrets down at once. On by default to test live.");
+        // G.EZ-T120: G.EZ-T111's "Multi-Sentry Cycling (SPIKE)" setting is gone - its variant swaps
+        // equipped extra sentries (a duplicate turret per swap), and the user dropped it. An old .cfg
+        // keeps the orphaned line harmlessly; nothing reads it.
 
         FogClearEnabled = Config.Bind("Fog Clearing", "Fog Clearing Enabled", false,
             "Keeps a silent, invisible fog-clearing sphere around you - the same fog-system sphere the Fog Repeller " +

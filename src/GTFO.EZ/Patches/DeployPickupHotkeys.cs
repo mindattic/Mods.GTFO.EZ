@@ -8,6 +8,10 @@ using UnityEngine;
 
 namespace GTFO.EZ.Patches;
 
+// G.EZ-T120: which turret each key places now comes from the shared team turret pool
+// (TeamTurrets.cs) - host and clients alike, bots' first and your own last, every bot placement
+// decided by the host. The history below still describes how the placement calls themselves work.
+//
 // G.EZ-T34 spike, since extended by G.EZ-T107: Shift+E deploys the first bot with an undeployed
 // tool at wherever the local player is currently aiming their own tool's placement ghost - reusing
 // the exact validated pose/validity SentryGunFirstPerson already computes every frame for the
@@ -30,17 +34,29 @@ internal static class DeployPickupHotkeys_Update_Patch
     private static void Postfix(Dam_PlayerDamageLocal __instance)
     {
         if (!LocalPlayerDamage.IsMine(__instance)) return;
-        if (!Plugin.BotsDeployOnShiftE.Value || !Hotkeys.InPlay) return;
+        if (!Plugin.BotsDeployOnShiftE.Value) return;
 
-        // Bots belong to the host: a client running these would only move its own copy of the bot's
-        // turret, leaving host and client disagreeing about it. X and Z gate their bot half the same
-        // way (SNet.IsMaster) and always run their own-sentry half regardless of host/client. The
-        // Shift+E guard below is armed on a client too, so Shift+E means the same thing for everyone:
-        // never your own placement.
+        // G.EZ-T120: the shared team turret pool - selection, the Tool key's cycling, and the host's
+        // pool broadcast (which runs outside FPS focus too, so a host at a terminal still answers).
+        try
+        {
+            TeamTurrets.Tick();
+        }
+        catch (Exception e)
+        {
+            Plugin.Logger.LogWarning($"Team turrets: tick failed. {e}");
+        }
+
+        if (!Hotkeys.InPlay) return;
+
+        // Bots belong to the host: every bot placement below goes through TeamTurrets.PlaceBot, which
+        // places directly on the host and only asks the host from a client (G.EZ-T120) - a client never
+        // moves its own copy of a bot's turret. The Shift+E guard below means the same thing for
+        // everyone: never your own placement.
         if (Hotkeys.ShiftHeld && Input.GetKeyDown(KeyCode.E))
         {
             Hotkeys.ShiftEPressedAt = Time.time;
-            if (SNet.IsMaster) BotDeployAtAim.TryDeployNext();
+            TeamTurrets.ShiftE();
         }
 
         if (Input.GetKeyDown(KeyCode.Z))
@@ -52,7 +68,15 @@ internal static class DeployPickupHotkeys_Update_Patch
             }
             else
             {
-                if (SNet.IsMaster) PickupAllBotTools.Activate();
+                if (SNet.IsMaster)
+                {
+                    PickupAllBotTools.Activate();
+                    TeamTurretNet.BroadcastNow();
+                }
+                else
+                {
+                    TeamTurretNet.RequestRecallBots(); // bots belong to the host - it recalls them
+                }
                 OwnSentryAutoPickup.Pickup();
             }
         }
@@ -78,22 +102,17 @@ internal static class Hotkeys
 // vanilla placement of your own held sentry in the same press. Hold that back for your own sentry
 // only - a bot's placement and X's own call go through.
 //
-// G.EZ-T116: plain E with your own sentry in hand also works through the whole team, one turret per
-// press. Placing your own sentry marks the Tool slot deployed (the item is now in the world), so
-// SentryGunFirstPerson_PlaceOnGround_Patch below switches you back to your previous weapon and slot 4
-// is empty - which is why one placement used to "remove the slot 4 items": the G.EZ-T111 variants are
-// only different builds of that one slot, so nothing was left to place. So while any bot still has an
-// undeployed sentry, E places that bot's sentry at your placement ghost instead and keeps your own in
-// hand, ghost and all, for the next press; your own (the variant you've cycled to) goes down last,
-// and only then does the existing postfix put slot 4 away and return your previous weapon.
+// G.EZ-T120 (replacing G.EZ-T116's fixed bot order): plain E with your own sentry in hand places
+// whichever turret the Tool key has selected from the shared team pool (TeamTurrets). While any bot
+// turret is available that's always a bot's - placed at your ghost, through the host, with your own
+// kept in hand, ghost and all, for the next press; your own goes down last, and only then does the
+// postfix below put slot 4 away and return your previous weapon.
 [HarmonyPatch(typeof(SentryGunFirstPerson), nameof(SentryGunFirstPerson.PlaceOnGround))]
 internal static class SentryGunFirstPerson_PlaceOnGround_ModifierGuard
 {
-    // With placement instant, a held E can re-trigger placement on the next frames; without the
-    // cooldown (TeamSentryRules.TeamPlaceCooldown) one press would dump every remaining turret (and
-    // then your own) on the same spot.
-    private static float _lastTeamPlaceAt = -10f;
-
+    // With placement instant, a held E can re-trigger placement on the next frames; the cooldown
+    // (TeamSentryRules.TeamPlaceCooldown, from TeamTurrets.LastTeamPlaceAt) keeps one press from
+    // dumping every remaining turret (and then your own) on the same spot.
     [HarmonyPrefix]
     private static bool Prefix(SentryGunFirstPerson __instance)
     {
@@ -106,52 +125,41 @@ internal static class SentryGunFirstPerson_PlaceOnGround_ModifierGuard
         var pressedNow = Input.GetKeyDown(KeyCode.E);
         var shiftE = Hotkeys.ShiftHeld && (pressedNow || Time.time - Hotkeys.ShiftEPressedAt <= Hotkeys.ShiftEPressWindow);
 
-        // Bots belong to the host; a client's E stays plain vanilla (just your own).
-        var wieldingTool = false;
-        var undeployed = 0;
-        if (!shiftE && SNet.IsMaster)
+        var selectedBot = 0UL;
+        if (!shiftE)
         {
             try
             {
-                wieldingTool = PlayerManager.TryGetLocalPlayerAgent(out var agent)
-                    && agent?.Inventory != null && agent.Inventory.WieldedSlot == InventorySlot.GearClass;
-                if (wieldingTool) undeployed = BotDeployAtAim.CountUndeployedBotSentries();
+                selectedBot = TeamTurrets.ResolveNow();
             }
             catch (Exception e)
             {
-                Plugin.Logger.LogWarning($"E: couldn't count bot turrets - placing your own instead. {e}");
+                // Our own failure, not a placement decision: hold your own rather than risk placing it
+                // ahead of bot turrets that are still queued.
+                Plugin.Logger.LogWarning($"E: couldn't read the team turret pool - placing nothing this press. {e}");
+                return false;
             }
         }
 
         // The decision is GTFO.EZ.Core.TeamSentryRules (unit tested); this only gathers the inputs.
-        return GTFO.EZ.Core.TeamSentryRules.Decide(shiftE, Time.time - _lastTeamPlaceAt, SNet.IsMaster, wieldingTool, undeployed) switch
+        switch (GTFO.EZ.Core.TeamSentryRules.Decide(shiftE, Time.time - TeamTurrets.LastTeamPlaceAt, selectedBot != 0))
         {
-            GTFO.EZ.Core.TeamSentryPlacement.HoldOwn => false,
-            GTFO.EZ.Core.TeamSentryPlacement.PlaceBotInstead => !TryPlaceNextBotInstead(__instance),
-            _ => true,
-        };
-    }
-
-    // True when a bot's sentry went down in place of your own, so the vanilla placement of your own
-    // is skipped and it stays in your hands.
-    private static bool TryPlaceNextBotInstead(SentryGunFirstPerson own)
-    {
-        try
-        {
-            var pose = new Pose(own.m_placePos, own.m_cameraLookRot);
-            if (!BotDeployAtAim.DeployBotAt(pose, "E")) return false;
-
-            _lastTeamPlaceAt = Time.time;
-            var left = BotDeployAtAim.CountUndeployedBotSentries();
-            MessageHelper.Show(left > 0
-                ? $"Bot turret placed - {left} more bot turret(s), then yours"
-                : "Bot turret placed - yours is next", MessageType.Center, 2.5f);
-            return true;
-        }
-        catch (Exception e)
-        {
-            Plugin.Logger.LogWarning($"E: couldn't place the next bot turret - placing your own instead. {e}");
-            return false;
+            case GTFO.EZ.Core.TeamSentryPlacement.HoldOwn:
+                return false;
+            case GTFO.EZ.Core.TeamSentryPlacement.PlaceBotInstead:
+                // The bot's turret goes down (host) or is asked for (client); either way your own
+                // stays in hand. A refusal just leaves the selection to move on next frame.
+                try
+                {
+                    TeamTurrets.PlaceBot(selectedBot, new Pose(__instance.m_placePos, __instance.m_cameraLookRot), "E");
+                }
+                catch (Exception e)
+                {
+                    Plugin.Logger.LogWarning($"E: couldn't place {TeamTurrets.Label(selectedBot)}. {e}");
+                }
+                return false;
+            default:
+                return true;
         }
     }
 }
@@ -207,116 +215,83 @@ internal static class Bots
         }
         return result;
     }
+
+    internal readonly struct BotSentry
+    {
+        public BotSentry(ulong lookup, bool deployed) { Lookup = lookup; Deployed = deployed; }
+        public ulong Lookup { get; }
+        public bool Deployed { get; }
+    }
+
+    // G.EZ-T120: every bot carrying a Sentry Gun (a mine deployer/C-foam/bio tracker bot isn't part
+    // of the turret pool), in level order, with whether it's down. Host-side truth for the pool.
+    // Cached per frame - the pool reads it several times a frame.
+    private static int _sentriesFrame = -1;
+    private static readonly List<BotSentry> _sentries = new();
+
+    internal static List<BotSentry> Sentries()
+    {
+        if (_sentriesFrame == Time.frameCount) return _sentries;
+        _sentriesFrame = Time.frameCount;
+        _sentries.Clear();
+        foreach (var agent in PlayerManager.PlayerAgentsInLevel)
+        {
+            try
+            {
+                if (agent == null || agent.Owner == null || !agent.Owner.IsBot) continue;
+                if (!PlayerBackpackManager.TryGetBackpack(agent.Owner, out var backpack) || backpack == null) continue;
+                if (!backpack.TryGetBackpackItem(InventorySlot.GearClass, out var item) || item?.Instance?.TryCast<SentryGunFirstPerson>() == null) continue;
+                _sentries.Add(new BotSentry(agent.Owner.Lookup, backpack.IsDeployed(InventorySlot.GearClass)));
+            }
+            catch (Exception e)
+            {
+                Plugin.Logger.LogWarning($"Team turrets: couldn't read a bot's Tool slot, skipping it. {e}");
+            }
+        }
+        return _sentries;
+    }
+
+    // The bot with this SNet lookup, its backpack and Tool slot item, re-read now (never cached) -
+    // what the host's placement gate checks.
+    internal static bool Find(ulong lookup, out PlayerAIBot? bot, out PlayerBackpack? backpack, out BackpackItem? item, out bool isSentry)
+    {
+        bot = null; backpack = null; item = null; isSentry = false;
+        foreach (var agent in PlayerManager.PlayerAgentsInLevel)
+        {
+            if (agent == null || agent.Owner == null || !agent.Owner.IsBot || agent.Owner.Lookup != lookup) continue;
+            bot = agent.GetComponent<PlayerAIBot>();
+            backpack = bot?.Backpack;
+            if (bot == null || backpack == null) return false;
+            if (backpack.TryGetBackpackItem(InventorySlot.GearClass, out var found) && found != null)
+            {
+                item = found;
+                isSentry = found.Instance?.TryCast<SentryGunFirstPerson>() != null;
+            }
+            return true;
+        }
+        return false;
+    }
+
+    internal static string NameOf(ulong lookup) => PlayerName(lookup, "a bot");
+
+    internal static string PlayerName(ulong lookup, string fallback = "a teammate")
+    {
+        try
+        {
+            foreach (var agent in PlayerManager.PlayerAgentsInLevel)
+                if (agent?.Owner != null && agent.Owner.Lookup == lookup && !string.IsNullOrEmpty(agent.Owner.NickName))
+                    return agent.Owner.NickName;
+        }
+        catch (Exception)
+        {
+            // Just a label.
+        }
+        return fallback;
+    }
 }
 
 internal static class BotDeployAtAim
 {
-    internal static void TryDeployNext()
-    {
-        Pose pose;
-        try
-        {
-            if (!TryGetAimPose(out pose))
-            {
-                Plugin.Logger.LogInfo("Shift+E: aim your own equipped tool at a valid placement spot first - that's the aim this reuses.");
-                return;
-            }
-        }
-        catch (Exception e)
-        {
-            Plugin.Logger.LogWarning($"Shift+E: couldn't read your placement aim. {e}");
-            return;
-        }
-
-        // DeployBotAt logs its own reason (and now, per G.EZ-T110, which bot had what) on failure.
-        DeployBotAt(pose, "Shift+E");
-    }
-
-    // Deploys the first bot with an undeployed sentry at the given pose. Shared by Shift+E (pose from
-    // your aim) and X (pose from your current position/orientation) - only the pose source differs.
-    internal static bool DeployBotAt(Pose pose, string logTag)
-    {
-        List<PlayerAIBot> bots;
-        try
-        {
-            bots = Bots.List();
-        }
-        catch (Exception e)
-        {
-            Plugin.Logger.LogWarning($"{logTag}: couldn't list bots. {e}");
-            return false;
-        }
-
-        // Filled in as bots are skipped, so a total failure can say *why* instead of just "no bot has
-        // an undeployed tool" - the symptom looked identical whether no bot carried a sentry, every
-        // sentry was already down, or a bot carried something else entirely, and that ambiguity made
-        // G.EZ-T110 impossible to pin down from a log alone.
-        var skipped = new List<string>();
-
-        foreach (var bot in bots)
-        {
-            try
-            {
-                var backpack = bot?.Backpack;
-                if (backpack == null) { skipped.Add("no backpack"); continue; }
-                if (!backpack.TryGetBackpackItem(InventorySlot.GearClass, out var backpackItem) || backpackItem == null)
-                {
-                    skipped.Add("empty Tool slot");
-                    continue;
-                }
-
-                var gearName = backpackItem.GearIDRange?.PublicGearName ?? "unknown gear";
-                if (backpack.IsDeployed(InventorySlot.GearClass))
-                {
-                    skipped.Add($"{gearName} (already deployed)");
-                    continue;
-                }
-
-                // Only a sentry: a bot carrying a mine deployer, C-foam launcher or bio tracker would
-                // fail the placement (or be marked deployed with nothing placed) ahead of a sentry bot.
-                if (backpackItem.Instance?.TryCast<SentryGunFirstPerson>() == null)
-                {
-                    skipped.Add($"{gearName} (not a sentry)");
-                    continue;
-                }
-
-                var desc = new PlayerBotActionDeploySentryGun.Descriptor(bot) { InstallationPose = pose };
-                var action = new PlayerBotActionDeploySentryGun(desc) { m_backpackItem = backpackItem };
-                action.PlaceSentryGunOnGround();
-                // Marks it placed-but-still-owned, the bookkeeping the bot's own AI does after this
-                // call. Clearing the slot instead (an earlier version) orphaned the turret, which
-                // broke bot item commands and gave Z nothing to recall.
-                backpack.SetDeployed(InventorySlot.GearClass, true);
-                Plugin.Logger.LogInfo($"{logTag}: deployed a bot's tool.");
-                return true;
-            }
-            catch (Exception e)
-            {
-                skipped.Add($"error: {e.Message}");
-                Plugin.Logger.LogWarning($"{logTag}: deploy attempt failed for one bot, trying the next. {e}");
-            }
-        }
-
-        Plugin.Logger.LogInfo(skipped.Count == 0
-            ? $"{logTag}: no bots in the level."
-            : $"{logTag}: no bot has an undeployed tool to place. Bots' Tool slots: {string.Join(", ", skipped)}.");
-        return false;
-    }
-
-    // How many bots still carry a sentry that isn't down - the same test DeployBotAt picks by.
-    internal static int CountUndeployedBotSentries()
-    {
-        var count = 0;
-        foreach (var bot in Bots.List())
-        {
-            var backpack = bot?.Backpack;
-            if (backpack == null || backpack.IsDeployed(InventorySlot.GearClass)) continue;
-            if (!backpack.TryGetBackpackItem(InventorySlot.GearClass, out var item) || item?.Instance?.TryCast<SentryGunFirstPerson>() == null) continue;
-            count++;
-        }
-        return count;
-    }
-
     // Mirrors exactly what the player's own SentryGunFirstPerson.Update() already computes every
     // frame for their own placement ghost - m_placePos/m_cameraLookRot are the validated spot,
     // m_lastCanPlace is the same green/red check the player sees. No separate raycast of our own.
@@ -436,17 +411,9 @@ internal static class QuickDropAll
                 return;
             }
 
-            // Bots first (host only - they belong to the host), then your own, so repeated presses
-            // clear the whole team's turrets in order before cycling back to yours.
-            if (SNet.IsMaster && BotDeployAtAim.DeployBotAt(pose, "X")) return;
-
-            if (OwnSentryAutoPlace.TryPlaceAt(pose))
-            {
-                Plugin.Logger.LogInfo("X: placed your sentry.");
-                return;
-            }
-
-            Plugin.Logger.LogInfo("X: nothing left to drop - every turret is already placed.");
+            // G.EZ-T120: from the shared team pool - every available bot turret first (placed by the
+            // host, asked for from a client), then your own last, so repeated presses clear the team.
+            TeamTurrets.QuickDrop(pose);
         }
         catch (Exception e)
         {

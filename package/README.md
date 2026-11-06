@@ -58,34 +58,37 @@ its own, each with its own config section and on/off switch:
 
 **Experimental** (`Experimental`, on by default):
 
-- **Bot tool controls**: aim your own sentry's placement ghost and press **Shift+E** to drop the
-  next bot's equipped tool there instead of yours; **X** drops the next turret wherever you're
-  currently standing and looking instead - no aiming needed - every bot that still has one
-  undeployed, one per press, then finally your own, so a few presses deploy the whole team; **Z**
-  recalls every bot-placed tool back into its bot, and your own placed sentry back into your
-  inventory too, all at once. One switch turns all three off. Shift+E and the bot half of X only
-  work for the host (bots belong to the host); your own half of X and Z works for everyone.
+- **Bot tool controls**: aim your own sentry's placement ghost and press
+  **Shift+E** to place a bot's turret there (the selected one, else the next; never yours); **X**
+  drops the next turret wherever you're currently standing and looking instead - no aiming needed -
+  every available bot turret first, one per press, then finally your own; **Z** instantly recalls
+  every bot-placed turret back into its bot, and your own placed sentry back into your inventory
+  too, all at once. All of them work for clients too: the bot half is asked of the host, which owns
+  the bots.
 - **Ping Anywhere**: `PING <KEY>` from any terminal finds an item anywhere in the level, not just
   in that terminal's zone; the marker shows for 10 s. Same-zone pings are left to the game's own
   PING, and any error falls back to it.
-- **Multi-Sentry Cycling (SPIKE)**: while your Tool slot is wielded, pressing its select key again
-  (**4** by default) swaps your Sentry Gun to the next of four real vanilla fire-mode variants
-  (burst, staggering auto, sniper semi, shotgun) instead of just the one you loaded out with. The
-  variant you've cycled to is the one your own turret goes down as.
-- **Team placement with E**: as host, while any bot still carries an undeployed sentry, each E
-  press while aiming your own sentry places the next bot's sentry at your ghost and keeps yours in
-  hand for the next press; your own goes down last, and only then does slot 4 put itself away and
-  return your previous weapon.
+- **Shared team turret pool**: with your own
+  sentry in hand, every bot's sentry that isn't down is yours to place too - one pool shared by
+  every player, host and clients alike. Pressing **4** again cycles the bot turrets still
+  available, with a label naming whose turret is selected and how many bot turrets are left before
+  yours; **E** places the selected one at your placement ghost and keeps yours in hand, ghost and
+  all. If someone else places the bot turret you have selected, you move on to the next one by
+  yourself. Your own always goes down last, once no bot turret is left (placed by anyone), and only
+  then does slot 4 put itself away and return your previous weapon. Bots belong to the host: a
+  client's bot placement is a request the host checks against the team's current state - it places
+  that bot's own turret only if it's still undeployed, so two players racing for the same one get
+  one turret, never two. The turrets the team brought in are the only ones that are ever placed.
 
 | Input | Action |
 |---|---|
-| E (aiming your sentry) | Place the next turret - bots' first (host only), yours last - instant; back to your previous weapon once all are down |
-| Shift+E (aiming your sentry) | Place the next bot's tool at your aim instead (host only) |
+| E (aiming your sentry) | Place the selected turret - every bot's first, yours last - instant; back to your previous weapon once yours is down |
+| 4 (sentry in hand, pressed again) | Cycle the selection among the bot turrets still available |
+| Shift+E (aiming your sentry) | Place a bot's turret at your aim (never yours) |
 | Insert | Infinite health on/off |
 | Delete | Infinite ammo on/off |
-| X | Drop the next turret at your current position/orientation - bots first (host only), then your own |
-| Z | Recall every bot-placed tool (host only) and your own placed sentry, all at once |
-| 4 (Tool wielded, pressed again) | Cycle your Sentry Gun to the next of four fire-mode variants |
+| X | Drop the next turret at your current position/orientation - bots first, then your own |
+| Z | Recall every bot-placed turret and your own placed sentry, all at once |
 
 **Infinite ammo and health** — **Insert** toggles infinite health (no damage to anyone on the team,
 bots included, whoever presses it) and **Delete** toggles infinite ammo (every gun, tool, placed sentry and
@@ -493,7 +496,9 @@ without GTFO.EZ installed, too.
 
 - **GTFO.EZ.AbsurdWeapons:** compatible. Everything it changes in the game's data is applied after this
   mod's, so where the two clash it wins. Its gear cycling (a slot's own select key, 1-4 by default,
-  pressed again while that slot is in hand) doesn't overlap with this mod's keys (E, Shift+E, X, Z).
+  pressed again while that slot is in hand) shares the Tool key (4) with this mod's turret selection:
+  while Absurd Weapons is switched on (End), 4 is its gear cycling and the turret selection stands
+  down; while it's off, 4 cycles turrets.
 - **GTFO.EZ.AbsurdItems:** compatible, and as of v20 a Thunderstore dependency of this mod - installing
   GTFO.EZ via a mod manager auto-installs it too, though it's still its own mod, plugin and config,
   not merged code. Artifact buffs and consumables as kits (*Consumables Are Kits*) that used to be in
@@ -549,6 +554,16 @@ others' prior work:
   patches, reverse-engineering datablock fields, and writing/auditing this documentation.
 
 ## Changelog
+
+### Unreleased
+
+- **Shared team turret pool** replaces Multi-Sentry Cycling and the fixed bots-first E: with your
+  sentry in hand, 4 cycles every bot turret still available to the whole team, E places the
+  selected one at your ghost, your own goes down last, and clients can place bots' turrets too -
+  each asked of the host, which only places a bot's own turret if it's still undeployed, so no
+  turret is ever duplicated. Shift+E, X and Z draw on the same pool.
+- **Multi-Sentry Cycling removed**: swapping your sentry's fire-mode variant equipped an extra
+  sentry each time, so one player could put down more turrets than the team brought.
 
 ### v20
 
