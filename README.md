@@ -38,9 +38,9 @@ vanilla-vs-default table):
   Kits* on (its Loot Mix adds Hand Grenades and Stim Packs to the kits), that mod decides the
   consumable loot, replacing this mod's per-item spawn odds; if its kits don't fill the tables,
   those odds still apply.
-- Fog: the fog's own enabled flag is switched off, and since fog still showed in play, a silent
-  fog-clearing sphere (the Fog Repeller's, minus its light, sound and time limit) follows you,
-  widening from 4 m to 25 m over 90 s each level. Tunable under `Fog Clearing`.
+- Fog: the fog's own enabled flag is switched off. An optional silent fog-clearing sphere (the Fog
+  Repeller's, minus its light, sound and time limit) can follow you, widening from 4 m to 25 m over
+  90 s each level - off by default, since the fog it clears is what keeps levels dark. Under `Fog Clearing`.
 - Revive duration is cut roughly two-thirds.
 - Sentry guns place and pick back up instantly - the vanilla hold-to-confirm charge is removed by
   default. Placing your own switches you straight back to the weapon you had out before.

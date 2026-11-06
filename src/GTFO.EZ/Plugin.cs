@@ -270,6 +270,14 @@ public class Plugin : BasePlugin
         (5, () => FogRepellerSpawnWeightMultiplier, 1.0f),
     };
 
+    // Same idea for on/off settings. Fog Clearing shipped on (G.EZ-T39), but its always-on sphere
+    // carves the level's fog out around every player, and that fog is most of what makes GTFO dark -
+    // players reported not needing a flashlight any more - so v6 turns it off (G.EZ-T115).
+    private static readonly (int Version, Func<ConfigEntry<bool>> Entry, bool OldDefault)[] BoolDefaultMigrations =
+    {
+        (6, () => FogClearEnabled, true),
+    };
+
     private static void ApplyConfigDefaultMigrations()
     {
         var reached = ConfigMigrationVersion.Value;
@@ -277,6 +285,12 @@ public class Plugin : BasePlugin
         foreach (var (version, entry, oldDefault) in DefaultMigrations)
         {
             if (reached < version) MigrateStaleDefault(entry(), oldDefault);
+            latest = Math.Max(latest, version);
+        }
+        foreach (var (version, entry, oldDefault) in BoolDefaultMigrations)
+        {
+            var e = entry();
+            if (reached < version && e.Value == oldDefault) e.Value = (bool)e.DefaultValue;
             latest = Math.Max(latest, version);
         }
         ConfigMigrationVersion.Value = latest;
@@ -758,9 +772,10 @@ public class Plugin : BasePlugin
             "shotgun) instead of just the one you loaded out with - each one placed normally with E, so one " +
             "player can have several different turrets down at once. On by default to test live.");
 
-        FogClearEnabled = Config.Bind("Fog Clearing", "Fog Clearing Enabled", true,
+        FogClearEnabled = Config.Bind("Fog Clearing", "Fog Clearing Enabled", false,
             "Keeps a silent, invisible fog-clearing sphere around you - the same fog-system sphere the Fog Repeller " +
-            "item uses, without its light, sound or time limit. It widens the longer you're in a level.");
+            "item uses, without its light, sound or time limit. It widens the longer you're in a level. Off by default: " +
+            "the fog it clears is most of what keeps levels dark, so with it on you barely need a flashlight.");
 
         FogClearStartRange = BindNonNegative("Fog Clearing", "Start Range (meters)", 4f,
             "Radius of clear air around you when a level starts. Default 4.");

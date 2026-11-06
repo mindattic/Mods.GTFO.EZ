@@ -9,7 +9,8 @@ namespace GTFO.EZ.Patches;
 // the way the Fog Repeller item does instead: a FogSphereAllocator sphere carved out of the fog
 // volume. It's the bare fog-system sphere under FogRepeller_Sphere, without the item's light,
 // sound or 70 s lifetime, so it's silent and permanent. It follows the local player and widens the
-// longer you're in a level, from Start Range to Max Range over Ramp Seconds.
+// longer you're in a level, from Start Range to Max Range over Ramp Seconds. Off by default since
+// G.EZ-T115: that fog is what keeps levels dark, and with it carved away no flashlight was needed.
 [HarmonyPatch(typeof(Dam_PlayerDamageLocal))]
 internal static class FogClearPulse_Patch
 {

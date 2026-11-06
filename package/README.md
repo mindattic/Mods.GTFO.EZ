@@ -29,7 +29,7 @@ config is applied; `-` means left at vanilla:
 | Revive duration (time to revive a downed teammate) | 4s | 1.32s (-67%) |
 | Fog (visibility-limiting fog) | enabled | disabled |
 | Sentry gun deploy/pickup interaction time | vanilla hold time | instant (-100%) |
-| Fog clearing around you | none (Fog Repeller item only, 70 s) | always on, 4 m widening to 25 m over 90 s |
+| Fog clearing around you | none (Fog Repeller item only, 70 s) | off by default (opt-in: 4 m widening to 25 m over 90 s) |
 
 A few deliberate non-changes among the tuned stats: regen delay after damage is left at vanilla
 (fast regen with no delay makes you nearly unkillable in a slow fight), the no-damage fall height
@@ -45,8 +45,9 @@ ordinary game settings you can change back in Settings → Gameplay.
 **Gameplay additions** — beyond the stat changes in the table, the mod adds a few behaviours of
 its own, each with its own config section and on/off switch:
 
-- **Fog clearing** (`Fog Clearing`): a silent, invisible version of the Fog Repeller's sphere
-  follows you, clearing 4 m around you at the start of a level and widening to 25 m over 90 s.
+- **Fog clearing** (`Fog Clearing`, off by default): a silent, invisible version of the Fog Repeller's
+  sphere follows you, clearing 4 m around you at the start of a level and widening to 25 m over 90 s.
+  Off since it made levels so bright you didn't need a flashlight.
 - **Instant sentries** (`Sentries`): sentry guns place and pick back up with no hold-to-confirm,
   and placing your own switches you straight back to the weapon you had out.
 - **Sentries pass through each other** (`Sentries` › `Pass Through Each Other`, on by default): a
