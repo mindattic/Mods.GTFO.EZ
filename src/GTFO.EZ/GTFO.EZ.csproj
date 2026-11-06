@@ -44,14 +44,20 @@
     <Reference Remove="$(BepInEx)\interop\netstandard.dll" />
   </ItemGroup>
 
+  <!-- GTFO-API (installed with BepInExPack_GTFO): the shared Insert/Delete toggles sync to the whole
+       team through it (InfiniteToggles.cs, GES-T12). -->
+  <ItemGroup>
+    <Reference Include="$(BepInEx)\plugins\GTFO-API.dll" Private="false" />
+  </ItemGroup>
+
   <!-- Code every GTFO.* mod compiles in, from the GTFO.EZ.Shared submodule (external/GTFO.EZ.Shared;
        the root README's Shared code section says how to fetch it). KitLoot.cs isn't used here since
-       Consumables Are Kits moved to GTFO.EZ.AbsurdItems, and RemoteEvents.cs needs GTFO-API, which this
-       mod doesn't use, so both are left out of this build. -->
+       Consumables Are Kits moved to GTFO.EZ.AbsurdItems, so it's left out of this build. -->
   <ItemGroup>
     <Compile Include="..\..\external\GTFO.EZ.Shared\SharedOwner.cs" Link="Shared\SharedOwner.cs" />
     <Compile Include="..\..\external\GTFO.EZ.Shared\InfiniteToggles.cs" Link="Shared\InfiniteToggles.cs" />
     <Compile Include="..\..\external\GTFO.EZ.Shared\MessageHelper.cs" Link="Shared\MessageHelper.cs" />
+    <Compile Include="..\..\external\GTFO.EZ.Shared\RemoteEvents.cs" Link="Shared\RemoteEvents.cs" />
   </ItemGroup>
 
   <!-- Pure balance data/math, shared with tests/GTFO.EZ.Core.Tests - see the root README's Project layout section. -->
