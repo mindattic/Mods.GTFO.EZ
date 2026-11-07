@@ -1,0 +1,28 @@
+# tcli publish config (release infra, not used by build.ps1). `tcli publish --file <dist zip> --token
+# <token>` reads name/namespace/version/dependencies straight from the zip's own manifest.json, so
+# [package] and [build] below are unused by that path and don't need to track the real version -
+# only [publish]'s communities/categories matter for --file publishes.
+[config]
+schemaVersion = "0.0.1"
+
+[package]
+namespace = "MindAttic"
+name = "GtfoEZ"
+versionNumber = "21.0.0"
+description = "2x HP & regen cap, no combat stamina penalty, -90% fall dmg, +50% ammo, 3x faster revives, short detection, no fog, fog clearing, instant sentries, bot sentry keys, ping any terminal, Ins/Del infinite ammo/HP. 530+ tunables."
+websiteUrl = "https://github.com/mindattic/GTFO.EZ"
+containsNsfwContent = false
+[package.dependencies]
+BepInEx-BepInExPack_GTFO = "3.2.4"
+MindAttic-GtfoEZAbsurdItems = "21.0.0"
+
+[build]
+icon = "./package/icon.png"
+readme = "./package/README.md"
+outdir = "./build"
+
+[publish]
+repository = "https://thunderstore.io"
+communities = [ "gtfo" ]
+[publish.categories]
+gtfo = []
