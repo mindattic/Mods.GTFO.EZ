@@ -153,3 +153,4 @@ _Nothing recorded yet._ (G.EZ-T5 closed — see Tickets below.)
 | G.EZ-T130 | 2026-11-06 | chore | closed | Publish v21.0.0 to Thunderstore | 62a6c12 |
 | G.EZ-T131 | 2026-11-06 | feature | closed | /publish: bumps all four GTFO.EZ mods in lockstep, builds each dist zip, publishes to Thunderstore in dependency order, commits and pushes | 1c52da9 |
 | G.EZ-T132 | 2026-11-07 | feature | closed | Add Thunderstore publish.yml (tcli) and .publish-state.json baseline for /publish no-op guard | — |
+| G.EZ-T133 | 2026-11-07 | feature | open | Add no-op guard to family /publish override: skip release only if all four mods are unchanged | — |

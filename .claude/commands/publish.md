@@ -1,5 +1,5 @@
 ---
-description: Release the whole GTFO.EZ mod family to Thunderstore - bumps all four versions in lockstep, builds each dist zip, publishes in dependency order, commits and pushes.
+description: Release the whole GTFO.EZ mod family to Thunderstore - skips the release if nothing changed anywhere, otherwise bumps all four versions in lockstep, builds each dist zip, publishes in dependency order, commits and pushes.
 argument-hint: "(no arguments)"
 allowed-tools: Read, Edit, Write, Bash, PowerShell, Skill
 ---
@@ -47,14 +47,34 @@ run; don't re-ask before publishing or pushing. Do stop and ask if something bel
   start (`git status --short`); if one does, stop and ask rather than bundling someone else's
   in-progress edit into a release commit.
 
-## 1. Compute the new version
+## 1. No-op guard - skip the whole release if nothing changed anywhere
+
+Build all four at their **current, not-yet-bumped** version first: `.\build.ps1` in each (same
+params as step 4). Hash each one's `package\` folder with
+`D:\Projects\MindAttic\mindattic-agent-standard\shared\compute-mod-hash.ps1 -Path <repo>\package
+-ExcludeNames manifest.json,CHANGELOG.md,README.md` (excludes the files a version bump always
+touches regardless of code, so the hash reflects only the compiled/packaged payload). Compare each
+result to that repo's own `.publish-state.json` at its root
+(`{ "lastPublishedVersion": "...", "lastPublishedHash": "...", "lastPublishedRef": "<sha>" }`) - if
+a repo has none yet, treat it as changed.
+
+**If every one of the four hashes matches its own `lastPublishedHash`:** tell the user plainly that
+none of the four mods changed since the last publish, and stop - don't bump, don't rebuild, don't
+publish.
+
+**If even one differs:** continue below and bump/build/publish all four together as always - a
+single changed mod still means all four rebuild and republish, to keep the family's version pins
+from drifting the way step 0's lockstep note already requires. This guard only skips the case where
+a run would do nothing but increment every version number for no actual change anywhere.
+
+## 2. Compute the new version
 
 Read `version_number` from `GTFO_EZ\package\manifest.json` and confirm the other three
 (`AbsurdItems`, `Moves`, `Weapons`) all show the same value - if any has drifted, stop and say so
 rather than guessing which is right. New version = that major number + 1, as `N.0.0` (whole
 numbers only, matching every past release).
 
-## 2. Bump each repo
+## 3. Bump each repo
 
 For each of the four, in any order:
 
@@ -70,7 +90,7 @@ For each of the four, in any order:
   keep the GTFO.EZ family in lockstep; no functional changes in this mod this release.` Never
   silently bump a repo's changelog with nothing written down for it.
 
-## 3. Build and verify every one before publishing any
+## 4. Build and verify every one before publishing any
 
 Run `.\build.ps1` in each of the four (default params are already right: `-GameName GTFO -Profile
 "Easy Mode DEV"`). Each must report **0 Warning(s), 0 Error(s)** and print a `Packaged: ...dist\*-
@@ -78,7 +98,7 @@ Run `.\build.ps1` in each of the four (default params are already right: `-GameN
 report which repo and why.** A half-built family release (e.g. GTFO.EZ live pointing at an
 AbsurdItems version that failed to build) is worse than not releasing.
 
-## 4. Publish, in this order: AbsurdItems, then GTFO.EZ, then Moves and Weapons (either order)
+## 5. Publish, in this order: AbsurdItems, then GTFO.EZ, then Moves and Weapons (either order)
 
 For each, from that repo's own directory:
 
@@ -102,16 +122,22 @@ build`/`tcli init` regenerate it or touch `icon.png`/`README.md` at the repo roo
 actually ship live under `package\`, and `tcli init` has previously dropped a placeholder
 `icon.png` at repo root that is not the real mod icon.)
 
-## 5. Commit and push each repo that published successfully
+## 6. Record publish state, commit and push each repo that published successfully
 
-One commit per repo, touching only `package\manifest.json`, `src\*\Plugin.cs` and
-`package\CHANGELOG.md` (and `package\manifest.json`'s dependency line for GTFO.EZ). File a ticket
-first (`tickets ticket new --repo <Repo> --type chore --summary "Publish v<new>.0.0 to
-Thunderstore"`), commit referencing it, close the ticket with the commit hash as `--ref`, then
-`git push`. End the commit message and this turn's git activity with the attribution lines from
-this session's own system reminder.
+Recompute each repo's payload hash post-build (same command as step 1 - the bumped version string
+compiles into the DLL, so this hash differs from step 1's even when no other code changed; that's
+expected and correct) and write its `.publish-state.json`: new hash, `"lastPublishedVersion":
+"<new>"`, and `lastPublishedRef` set to the commit you're about to make (fill in its real sha after
+committing).
 
-## 6. Report
+One commit per repo, touching only `package\manifest.json`, `src\*\Plugin.cs`,
+`package\CHANGELOG.md` and `.publish-state.json` (and `package\manifest.json`'s dependency line for
+GTFO.EZ). File a ticket first (`tickets ticket new --repo <Repo> --type chore --summary "Publish
+v<new>.0.0 to Thunderstore"`), commit referencing it, close the ticket with the commit hash as
+`--ref`, then `git push`. End the commit message and this turn's git activity with the attribution
+lines from this session's own system reminder.
+
+## 7. Report
 
 One line per mod: old version -> new version, the Thunderstore URL (or the failure), and whether
 its repo was committed/pushed. Say plainly if anything was skipped or stopped early, and why.
