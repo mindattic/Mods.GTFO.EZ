@@ -155,3 +155,10 @@ _Nothing recorded yet._ (G.EZ-T5 closed — see Tickets below.)
 | G.EZ-T132 | 2026-11-07 | feature | closed | Add Thunderstore publish.yml (tcli) and .publish-state.json baseline for /publish no-op guard | — |
 | G.EZ-T133 | 2026-11-07 | feature | closed | Add no-op guard to family /publish override: skip release only if all four mods are unchanged | 2def837 |
 | G.EZ-T134 | 2026-11-10 | chore | closed | Crash recovery: commit the command-catalog sync (.agent/commands/*.md) and regenerated docs/USER_STORIES.md left uncommitted by the session crash | — |
+| G.EZ-T135 | 2026-11-22 | docs | open | Audit Mods.GTFO.EZ package/README.md against Plugin.cs config entries and CHANGELOG.md; add v20 BepInEx bump, AbsurdItems dependency and multi-sentry cycling | — |
+| G.EZ-T136 | 2026-11-22 | docs | open | Audit and update each other GTFO.* mod's own README (AbsurdItems, AbsurdMoves, AbsurdWeapons, Shared, etc.) against its config and CHANGELOG, including the v20 bump | — |
+| G.EZ-T137 | 2026-11-22 | fix | open | Audit GTFO.EZ, AbsurdItems, AbsurdMoves, AbsurdWeapons and Shared for effects that apply only on the local machine; write the findings list | — |
+| G.EZ-T138 | 2026-11-22 | fix | open | Make GTFO.EZ toggles, refills and buffs (infinite ammo/life etc.) apply team-wide via host-authoritative sync | — |
+| G.EZ-T139 | 2026-11-22 | fix | open | Make AbsurdItems, AbsurdMoves, AbsurdWeapons and datablock tweaks host-authoritative so every participant gets the same effects | — |
+| G.EZ-T140 | 2026-11-22 | fix | open | Fix turret/sentry quantity communication so all players see accurate counts; then bump version and release | — |
+| G.EZ-T141 | 2026-11-22 | docs | closed | 2026-11-22 morning | — |
