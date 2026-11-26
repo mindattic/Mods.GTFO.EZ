@@ -24,7 +24,7 @@ internal static class Interact_Revive_Setup_Patch
         var key = __instance.Pointer;
         if (Scaled.TryGetValue(key, out var left) && __instance.InteractDuration == left) return;
         if (Scaled.Count > 256) Scaled.Clear(); // destroyed instances' pointers; a handful exist at once
-        __instance.InteractDuration *= Plugin.ReviveDurationMultiplier.Value;
+        __instance.InteractDuration *= LevelSettings.Effective(Plugin.ReviveDurationMultiplier);
         Scaled[key] = __instance.InteractDuration;
     }
 }

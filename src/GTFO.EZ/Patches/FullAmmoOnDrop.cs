@@ -32,7 +32,7 @@ internal static class FullAmmoOnDrop
             _failed = false;
             return;
         }
-        if (_filledThisDrop || _failed || state != eGameStateName.InLevel || !Plugin.FullAmmoOnDrop.Value) return;
+        if (_filledThisDrop || _failed || state != eGameStateName.InLevel || !LevelSettings.Effective(Plugin.FullAmmoOnDrop)) return;
 
         try
         {

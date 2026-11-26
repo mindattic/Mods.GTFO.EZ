@@ -18,20 +18,31 @@ namespace GTFO.EZ.Patches;
 /// tweaks read (GameDataTweaks' ApplyExpeditionBalanceTweaks/ApplyArtifactTweaks/ApplyLootTweaks).
 /// Every machine builds the level from its own GameData, so these must be the host's on every
 /// client: <see cref="Effective(ConfigEntry{float})"/> is the host's value while one is held, else
-/// your own. Nothing here writes the client's .cfg. Per-player settings (your own health, stamina,
-/// weapons...) are never in this set and stay your own.
+/// your own. Nothing here writes the client's .cfg. Per-player datablock settings (your own health, stamina,
+/// weapons...) are never in this set and stay your own; the runtime toggles and refills in
+/// <c>Team</c> follow the host as well (G.EZ-T138).
 /// </summary>
 internal static class LevelSettings
 {
     // The sections whose every entry feeds the level tweaks. A per-player setting must not be bound
-    // in one of these (or must be listed in Excluded) - it would follow the host.
+    // in one of these - it would follow the host.
     private static readonly HashSet<string> Sections = new(StringComparer.Ordinal)
     {
         "Expedition Resources", "Expedition Enemies", "Expedition Level Gen", "Expedition Doors", "Artifact Spawns", "Loot",
     };
 
-    // Applied per player at the drop, not part of level generation (G.EZ-T123).
-    private static readonly HashSet<string> Excluded = new(StringComparer.Ordinal) { "Expedition Resources/Full Ammo On Drop" };
+    // G.EZ-T138: the toggles, refills and buffs read at the moment they happen rather than when the
+    // level is built (Full Ammo On Drop's refill, Ping Anywhere, Sentries Pass Through Each Other,
+    // the revive and sentry deploy/pickup durations). They follow the host too, so one team plays
+    // one set of rules; they sit in sections that aren't level-shaping, so they're listed by key.
+    private static readonly HashSet<string> Team = new(StringComparer.Ordinal)
+    {
+        "Expedition Resources/Full Ammo On Drop",
+        "Experimental/Ping Anywhere",
+        "Sentries/Pass Through Each Other",
+        "Sentries/Deploy/Pickup Interaction Duration Multiplier",
+        "Interactions/Revive Duration Multiplier",
+    };
 
     private static readonly List<(string Key, ConfigEntryBase Entry)> Entries = new();
     private static readonly Dictionary<ConfigEntryBase, string> KeyOf = new();
@@ -45,7 +56,7 @@ internal static class LevelSettings
         foreach (var pair in config)
         {
             var key = Key(pair.Key);
-            if (!Sections.Contains(pair.Key.Section) || Excluded.Contains(key) || ToFloat(pair.Value.BoxedValue) == null) continue;
+            if (!(Sections.Contains(pair.Key.Section) || Team.Contains(key)) || ToFloat(pair.Value.BoxedValue) == null) continue;
             Entries.Add((key, pair.Value));
             KeyOf[pair.Value] = key;
         }
@@ -107,6 +118,7 @@ internal static class ModFingerprints
 {
     private const string AbsurdItemsGuid = "MindAttic.GTFO.EZ.AbsurdItems";
     private const string AbsurdWeaponsGuid = "MindAttic.GTFO.EZ.AbsurdWeapons";
+    private const string AbsurdMovesGuid = "MindAttic.GTFO.EZ.AbsurdMoves";
 
     // AbsurdItems' injected items: the Frag Grenade (1203, the old Hand Grenade's id), the Stim Pack
     // and the Plasma Grenade (1205, GAI-T37) - all always registered (GAI-T39).
@@ -124,10 +136,18 @@ internal static class ModFingerprints
         };
         list.Add(Other(AbsurdItemsLevel.Name, AbsurdItemsGuid, AbsurdItemsLevel.IsLevelSetting,
             () => Mask(AbsurdItemsItems, id => GameDataBlockBase<ItemDataBlock>.HasBlock(id))));
-        list.Add(Other("GTFO.EZ.AbsurdWeapons", AbsurdWeaponsGuid, _ => false,
+        list.Add(Other("GTFO.EZ.AbsurdWeapons", AbsurdWeaponsGuid, IsSharedEffectSetting,
             () => Mask(AbsurdWeaponsGear, id => GameDataBlockBase<GearCategoryDataBlock>.HasBlock(id))));
+        list.Add(Other("GTFO.EZ.AbsurdMoves", AbsurdMovesGuid, IsSharedEffectSetting, () => 0UL));
         return list;
     }
+
+    // G.EZ-T139: AbsurdWeapons' and AbsurdMoves' numbers and switches shape what every player sees (a
+    // weapon's damage and magazine in its datablock, a ground pound's shockwave, bullet time), so they
+    // are compared host against client. Keys, sounds and the migration marker are per player and
+    // never numeric, so the numeric filter in Settings leaves them out; the sections below are the
+    // numeric ones that are still your own.
+    private static bool IsSharedEffectSetting(ConfigDefinition d) => d.Section is not ("Internal" or "Gear Cycling");
 
     /// <summary>Another GTFO.* mod's plugin, when it's installed and switched on.</summary>
     internal static BasePlugin? ActivePlugin(string guid) =>

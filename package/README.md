@@ -514,10 +514,12 @@ without GTFO.EZ installed, too.
   from GTFO.EZ.AbsurdWeapons. Its kit loot is applied after this mod's data changes and replaces this
   mod's consumable spawn odds along with the items.
 - **Multiplayer:** the host's level settings win. In someone else's lobby, every setting in
-  `[Expedition Resources]` (except Full Ammo On Drop), `[Expedition Enemies]`, `[Expedition Level
+  `[Expedition Resources]`, `[Expedition Enemies]`, `[Expedition Level
   Gen]`, `[Expedition Doors]`, `[Artifact Spawns]` and `[Loot]` uses the host's value for as long as
   you're in that lobby - the level is built the same on every machine - and your own `.cfg` is left
-  as it is. Everything else (your health, stamina, movement, weapons, controls) stays your own. When
+  as it is. So do the toggles and refills applied as they happen - Full Ammo On Drop, Ping Anywhere,
+  Sentries Pass Through Each Other and the revive and sentry deploy/pickup durations. The game-data
+  buffs (your health, stamina, movement, weapons) and controls stay your own. When
   you join, your game and the host's compare a fingerprint of every GTFO.* mod's level settings and
   added items/weapons, and anything that differs is named in the event log (the host's names you).
   GTFO.EZ.AbsurdItems' level settings - its `[Loot]` (kit loot and Loot Mix), which grenades and Stim

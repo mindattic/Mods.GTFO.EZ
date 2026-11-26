@@ -22,7 +22,7 @@ internal static class SentryPassThrough
     {
         try
         {
-            if (!Plugin.SentriesPassThrough.Value || __instance == null) return;
+            if (!LevelSettings.Effective(Plugin.SentriesPassThrough) || __instance == null) return;
             var layer = PassLayer();
             if (layer == null) return;
 

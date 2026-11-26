@@ -22,7 +22,7 @@ internal static class SentryGunFirstPerson_Setup_Patch
         var key = __instance.Pointer;
         if (Scaled.TryGetValue(key, out var left) && __instance.m_deployPickupInteractionDuration == left) return;
         if (Scaled.Count > 256) Scaled.Clear();
-        __instance.m_deployPickupInteractionDuration *= Plugin.SentryDeployPickupInteractionDurationMultiplier.Value;
+        __instance.m_deployPickupInteractionDuration *= LevelSettings.Effective(Plugin.SentryDeployPickupInteractionDurationMultiplier);
         Scaled[key] = __instance.m_deployPickupInteractionDuration;
     }
 }

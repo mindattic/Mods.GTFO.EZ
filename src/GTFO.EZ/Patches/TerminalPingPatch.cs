@@ -34,7 +34,7 @@ internal static class TerminalPing_EvaluateInput_Patch
     [HarmonyPrefix]
     private static bool Prefix(LG_ComputerTerminalCommandInterpreter __instance, string inputString)
     {
-        if (!Plugin.TerminalPingAnywhere.Value) return true;
+        if (!LevelSettings.Effective(Plugin.TerminalPingAnywhere)) return true;
 
         try
         {
