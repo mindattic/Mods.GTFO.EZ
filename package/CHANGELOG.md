@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased
+
+- **Toggles and refills follow the host too (G.EZ-T138):** in someone else's lobby, Full Ammo On Drop,
+  Ping Anywhere, Sentries Pass Through Each Other and the revive and sentry deploy/pickup duration
+  multipliers use the host's value, so the whole team plays one set of rules. Your own `.cfg` is left
+  as it is. The game-data buffs (health, stamina, movement, weapons) still stay your own; making
+  those host-authoritative needs a snapshot and re-apply of the player and weapon datablocks.
+
+- **Turret counts are the real ones the moment a turret goes down or comes back (G.EZ-T140):** the
+  host read the bots' turrets once per frame and reused that look for the pool state it broadcast and
+  the "N bot turrets left" it announced right after a placement or a Z recall, so both could still
+  count the turret that had just gone down (or not yet the one that came back) until the next
+  heartbeat. The look is now refreshed the moment a flag changes. A bot that puts its own turret down
+  is announced to everyone too, with the count left.
+
 ## 21.0.0
 
 - **GTFO.EZ.AbsurdItems' level settings follow the host too (G.EZ-T128):** its kit loot and Loot Mix

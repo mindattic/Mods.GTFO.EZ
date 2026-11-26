@@ -273,6 +273,7 @@ internal static class TeamTurrets
         // slot instead orphaned the turret and gave Z nothing to recall) - and the flag every later
         // request is checked against.
         backpack!.SetDeployed(InventorySlot.GearClass, true);
+        Bots.InvalidateSentries();
         Plugin.Logger.LogInfo($"{logTag}: placed {Label(lookup)}.");
         return TurretPlaceResult.Placed;
     }
@@ -421,6 +422,7 @@ internal static class TeamTurretNet
     private static PoolState _lastSent;
     private static readonly Dictionary<ulong, float> _failedUntil = new();
     private static readonly List<RecallBatch> _recalls = new();
+    private static readonly Dictionary<ulong, bool> _seenDeployed = new();   // each bot's turret as of the last tick
 
     // Client side.
     private static readonly List<ViewEntry> _hostView = new();
@@ -454,7 +456,11 @@ internal static class TeamTurretNet
 
         if (SNet.IsMaster)
         {
-            if (enabled) VerifyRecalls();
+            if (enabled)
+            {
+                VerifyRecalls();
+                AnnounceBotOwnPlacements();
+            }
             var state = Snapshot(enabled);
             if (Time.unscaledTime >= _nextHeartbeat || !Same(state, _lastSent)) Send(state);
             return reset;
@@ -496,6 +502,7 @@ internal static class TeamTurretNet
         ResetClient();
         _failedUntil.Clear();
         _recalls.Clear();
+        _seenDeployed.Clear();
         _nextHeartbeat = 0f;
         return true;
     }
@@ -582,6 +589,19 @@ internal static class TeamTurretNet
         return n;
     }
 
+    // A bot that puts its own turret down (its AI, not a player's request) changes the count for
+    // everyone, so it's told to everyone like any other placement. Pool placements and recalls are
+    // announced where they happen; they only move a bot's flag, which is tracked here every tick.
+    private static void AnnounceBotOwnPlacements()
+    {
+        foreach (var b in Bots.Sentries())
+        {
+            if (_seenDeployed.TryGetValue(b.Lookup, out var was) && !was && b.Deployed && !HostCooling(b.Lookup))
+                Announce(new TeamNotice { Kind = EventPlaced, Actor = b.Lookup, Bot = b.Lookup, Left = (byte)HostBotsLeft() });
+            _seenDeployed[b.Lookup] = b.Deployed;
+        }
+    }
+
     // On the host: one bot placement for anyone (the host's own press, or a client's request), then
     // the new state to everyone and the line every event log shows. Returns the reason for the requester.
     // The new state goes out before the announcement and before the requester's answer, which names
@@ -591,6 +611,7 @@ internal static class TeamTurretNet
         var result = TeamTurrets.HostPlaceBot(bot, pose, logTag);
         if (result == TurretPlaceResult.Failed) _failedUntil[bot] = Time.unscaledTime + TeamTurretPool.FailedCooldownSeconds;
         stateSeq = Send(Snapshot(Plugin.BotsDeployOnShiftE.Value));
+        foreach (var b in Bots.Sentries()) _seenDeployed[b.Lookup] = b.Deployed;
         if (result == TurretPlaceResult.Failed)
             Announce(new TeamNotice { Kind = EventFailed, Actor = actor, Bot = bot, Left = (byte)HostBotsLeft() });
         else if (result == TurretPlaceResult.Placed)
@@ -606,6 +627,7 @@ internal static class TeamTurretNet
         if (!SNet.IsMaster) return;
         var batch = new RecallBatch { Actor = actor, OwnToo = ownToo, At = Time.unscaledTime };
         batch.Bots.AddRange(PickupAllBotTools.Activate());
+        Bots.InvalidateSentries();
         BroadcastNow();
         if (batch.Bots.Count > 0 || ownToo) _recalls.Add(batch);
     }
@@ -623,6 +645,7 @@ internal static class TeamTurretNet
             var back = 0;
             foreach (var lookup in batch.Bots)
                 if (PickupAllBotTools.EnsureBackInPool(lookup, now - batch.At)) back++;
+            Bots.InvalidateSentries();
             BroadcastNow();
             Announce(new TeamNotice { Kind = EventRecalled, Actor = batch.Actor, Count = (byte)back, OwnToo = (byte)(batch.OwnToo ? 1 : 0), Left = (byte)HostBotsLeft() });
         }

@@ -248,6 +248,10 @@ internal static class Bots
     private static int _sentriesFrame = -1;
     private static readonly List<BotSentry> _sentries = new();
 
+    // A flag changed this frame (a turret placed or recalled): the next read must see it, so the
+    // state sent and the count announced right after are the real ones, not the frame's first look.
+    internal static void InvalidateSentries() => _sentriesFrame = -1;
+
     internal static List<BotSentry> Sentries()
     {
         if (_sentriesFrame == Time.frameCount) return _sentries;
@@ -531,6 +535,7 @@ internal static class PickupAllBotTools
             if (GTFO.EZ.Core.TeamTurretPool.ClearDeployedAfterRecall(deployed, standing, secondsSinceRecall))
             {
                 backpack.SetDeployed(InventorySlot.GearClass, false);
+                Bots.InvalidateSentries();
                 Plugin.Logger.LogInfo($"Z: {TeamTurrets.Label(lookup)} was picked up but its backpack still said deployed - cleared, it's back in the pool.");
                 return true;
             }
