@@ -18,9 +18,9 @@ namespace GTFO.EZ.Patches;
 /// tweaks read (GameDataTweaks' ApplyExpeditionBalanceTweaks/ApplyArtifactTweaks/ApplyLootTweaks).
 /// Every machine builds the level from its own GameData, so these must be the host's on every
 /// client: <see cref="Effective(ConfigEntry{float})"/> is the host's value while one is held, else
-/// your own. Nothing here writes the client's .cfg. Per-player datablock settings (your own health, stamina,
-/// weapons...) are never in this set and stay your own; the runtime toggles and refills in
-/// <c>Team</c> follow the host as well (G.EZ-T138).
+/// your own. Nothing here writes the client's .cfg. The runtime toggles and refills in <c>Team</c>
+/// follow the host as well (G.EZ-T138), and so do the game-data buffs (G.EZ-T144); only the
+/// settings of the other sections (ammo, friendly fire, no-air, flashlight, enemy balance...) stay your own.
 /// </summary>
 internal static class LevelSettings
 {
@@ -42,7 +42,28 @@ internal static class LevelSettings
         "Sentries/Pass Through Each Other",
         "Sentries/Deploy/Pickup Interaction Duration Multiplier",
         "Interactions/Revive Duration Multiplier",
+        "Environment/Disable Fog",
     };
+
+    // G.EZ-T144: the game-data buffs - your player datablock (health, stamina, movement, fall
+    // damage, battery) and the weapon, melee and sentry multipliers - are applied to the datablocks
+    // at GameDataInit like the level tweaks, so they follow the host the same way (re-applied from a
+    // snapshot of the vanilla values before the level builds). Sections, or section prefixes for the
+    // generated per-weapon and per-melee ones.
+    private static readonly HashSet<string> BuffSections = new(StringComparer.Ordinal)
+    {
+        "Health", "Stamina", "Movement", "Fall Damage", "Utility", "Sentries",
+    };
+
+    private static readonly string[] BuffSectionPrefixes = { "Weapon - ", "Weapon Type - ", "Melee - " };
+
+    private static bool IsBuffSection(string section)
+    {
+        if (BuffSections.Contains(section)) return true;
+        foreach (var prefix in BuffSectionPrefixes)
+            if (section.StartsWith(prefix, StringComparison.Ordinal)) return true;
+        return false;
+    }
 
     private static readonly List<(string Key, ConfigEntryBase Entry)> Entries = new();
     private static readonly Dictionary<ConfigEntryBase, string> KeyOf = new();
@@ -56,7 +77,7 @@ internal static class LevelSettings
         foreach (var pair in config)
         {
             var key = Key(pair.Key);
-            if (!(Sections.Contains(pair.Key.Section) || Team.Contains(key)) || ToFloat(pair.Value.BoxedValue) == null) continue;
+            if (!(Sections.Contains(pair.Key.Section) || IsBuffSection(pair.Key.Section) || Team.Contains(key)) || ToFloat(pair.Value.BoxedValue) == null) continue;
             Entries.Add((key, pair.Value));
             KeyOf[pair.Value] = key;
         }

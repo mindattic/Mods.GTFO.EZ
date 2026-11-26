@@ -77,3 +77,11 @@ AbsurdItems halo grenades (throw/stick/detonate events) and artifact pickup tall
 - G.EZ-T140 (turret counts): no new gaps found beyond what 212ca34 covers; the pool is
   host-authoritative and broadcast. A7's sentry multipliers are the only turret-related per-machine
   setting.
+
+## Resolved by G.EZ-T144
+
+A3 (health, regen), A5 (fall damage, stamina, movement, battery), A7 (weapon, melee and sentry
+multipliers) and A8's Disable Fog now follow the host in someone else's lobby: their sections are in
+`LevelSettings`, the player, weapon, melee and fog datablocks are snapshotted (`DataBlockSnapshot`)
+and re-applied with the host's values before the level builds. Ammo, Friendly Fire, No-Air,
+Flashlight, Enemy Balance and Detection stay per machine.

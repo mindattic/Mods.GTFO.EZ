@@ -64,18 +64,16 @@ internal static class GameDataInit_Initialize_Patch
         // mod can't survive, per the class comment above) would otherwise take down every other,
         // unrelated category too, since the original code bailed out of the entire sequence on
         // the first exception.
-        RunTweakCategory("player", ApplyPlayerTweaks);
+        RunTweakCategory("game data snapshot", () => buffSnapshot = DataBlockSnapshot.Capture());
+        RunTweakCategory("level snapshot", () => levelSnapshot = LevelBlockSnapshot.Capture());
+        RunBuffCategories();
         RunTweakCategory("flashlight", ApplyFlashlightTweaks);
         RunTweakCategory("detection", ApplyDetectionTweaks);
         RunTweakCategory("enemy balance", ApplyEnemyBalanceTweaks);
-        RunTweakCategory("fog", ApplyFogTweaks);
         // G.EZ-T125: the level-shaping categories read LevelSettings.Effective (the host's values in
         // someone else's lobby), and the vanilla fields they touch are snapshotted first so a client
         // can put them back and apply the host's values without compounding.
-        RunTweakCategory("level snapshot", () => levelSnapshot = LevelBlockSnapshot.Capture());
         RunLevelCategories();
-        RunTweakCategory("melee", ApplyMeleeTweaks);
-        RunTweakCategory("weapon", ApplyWeaponTweaks);
         RunTweakCategory("re-apply guard", RememberApplied);
         Plugin.Logger.LogInfo("GTFO.EZ tweaks applied. Goo goo. Gah gah.");
     }
@@ -87,10 +85,21 @@ internal static class GameDataInit_Initialize_Patch
     // block (the G.EZ-T109 witness) isn't touched, so a later GameDataInit re-run is still recognized.
     private static LevelBlockSnapshot? levelSnapshot;
 
+    // G.EZ-T144: the same for the player, weapon, melee and fog datablocks (the game-data buffs).
+    private static DataBlockSnapshot? buffSnapshot;
+
     internal static bool LevelSnapshotTaken => levelSnapshot != null;
 
     // The LevelSettings signature the level datablocks were last tweaked with.
     internal static ulong AppliedLevelSignature { get; private set; }
+
+    private static void RunBuffCategories()
+    {
+        RunTweakCategory("player", ApplyPlayerTweaks);
+        RunTweakCategory("fog", ApplyFogTweaks);
+        RunTweakCategory("melee", ApplyMeleeTweaks);
+        RunTweakCategory("weapon", ApplyWeaponTweaks);
+    }
 
     private static void RunLevelCategories()
     {
@@ -110,13 +119,16 @@ internal static class GameDataInit_Initialize_Patch
         try
         {
             levelSnapshot.Restore();
+            buffSnapshot?.Restore();
         }
         catch (Exception e)
         {
-            Plugin.Logger.LogError($"GTFO.EZ couldn't restore the vanilla level datablocks - keeping the level tweaks as they are: {e}");
+            Plugin.Logger.LogError($"GTFO.EZ couldn't restore the vanilla datablocks - keeping the level tweaks as they are: {e}");
             AppliedLevelSignature = LevelSettings.EffectiveSignature(); // don't retry every second
             return;
         }
+        RunBuffCategories();
+        RunTweakCategory("re-apply guard", RememberApplied);
         RunLevelCategories();
         RunTweakCategory("GTFO.EZ.AbsurdItems kit loot", RerunAbsurdItemsKitLoot);
         GameDataInit_EmptyDisabledLoot_Patch.Postfix();
@@ -165,14 +177,14 @@ internal static class GameDataInit_Initialize_Patch
             return;
         }
 
-        var healthMult = Plugin.HealthMultiplier.Value;
+        var healthMult = LevelSettings.Effective(Plugin.HealthMultiplier);
         player.health *= healthMult;
 
         // Rate and cap are deliberately separate multipliers: vanilla under-regens relative to
         // its own cap, so hitting both target numbers (0.1/s against a 40% cap) needs different
         // factors. Regen delay after damage is left untouched on purpose - see config comment.
-        player.healthRegenPerSecond *= Plugin.HealthRegenRateMultiplier.Value;
-        player.healthRegenRelMax = Math.Min(1f, player.healthRegenRelMax * Plugin.HealthRegenCapMultiplier.Value);
+        player.healthRegenPerSecond *= LevelSettings.Effective(Plugin.HealthRegenRateMultiplier);
+        player.healthRegenRelMax = Math.Min(1f, player.healthRegenRelMax * LevelSettings.Effective(Plugin.HealthRegenCapMultiplier));
 
         // Equalize rather than multiply: vanilla's "in combat" rates are approximate research
         // figures, but copying the known-good "out of combat" rates is exact regardless of the
@@ -183,7 +195,7 @@ internal static class GameDataInit_Initialize_Patch
         // equalizing them was a no-op - this feature shipped doing nothing. The real combat
         // penalty is twofold: a lower regen rate while resting in combat (0.15/s vs 0.25/s out
         // of combat), and a hard 90% cap on stamina while in combat. Both are fixed here now.
-        if (Plugin.RemoveCombatStaminaPenalty.Value)
+        if (LevelSettings.Effective(Plugin.RemoveCombatStaminaPenalty))
         {
             player.StaminaRegenNotRestingInCombat = player.StaminaRegenNotRestingOutOfCombat;
             player.StaminaRegenRestingInCombat = player.StaminaRegenRestingOutOfCombat;
@@ -193,7 +205,7 @@ internal static class GameDataInit_Initialize_Patch
         // Stamina in GTFO is a 0-1 meter with no maximum to raise, so "more stamina" divides what
         // every action costs and speeds regen up by the same factor (moved over from
         // GTFO.EZ.AbsurdMoves' Run Speed/Stamina feature, G.EZ-T97).
-        var staminaMult = Plugin.StaminaMultiplier.Value;
+        var staminaMult = LevelSettings.Effective(Plugin.StaminaMultiplier);
         if (staminaMult > 0f)
         {
             player.StaminaJumpCost = Cheaper(player.StaminaJumpCost, staminaMult);
@@ -208,12 +220,12 @@ internal static class GameDataInit_Initialize_Patch
             player.StaminaRegenNotRestingOutOfCombat *= staminaMult;
         }
 
-        var fallDamageMult = Plugin.FallDamageMultiplier.Value;
+        var fallDamageMult = LevelSettings.Effective(Plugin.FallDamageMultiplier);
         player.fallDamageMin *= fallDamageMult;
         player.fallDamageMax *= fallDamageMult;
 
-        player.fallDamageMinHeight *= Plugin.FallDamageMinHeightMultiplier.Value;
-        player.fallDamageMaxHeight *= Plugin.FallDamageMaxHeightMultiplier.Value;
+        player.fallDamageMinHeight *= LevelSettings.Effective(Plugin.FallDamageMinHeightMultiplier);
+        player.fallDamageMaxHeight *= LevelSettings.Effective(Plugin.FallDamageMaxHeightMultiplier);
 
         var ammoMult = Plugin.AmmoMultiplier.Value;
         player.AmmoStandardInitial = ScaleUp(player.AmmoStandardInitial, ammoMult);
@@ -226,19 +238,19 @@ internal static class GameDataInit_Initialize_Patch
         player.AmmoClassMaxCap = ScaleUp(player.AmmoClassMaxCap, ammoMult);
         player.AmmoClassResourcePackMaxCap = ScaleUp(player.AmmoClassResourcePackMaxCap, ammoMult);
 
-        player.walkMoveSpeed *= Plugin.WalkSpeedMultiplier.Value;
-        player.runMoveSpeed *= Plugin.RunSpeedMultiplier.Value;
-        player.airMoveSpeed *= Plugin.AirSpeedMultiplier.Value;
-        player.crouchMoveSpeed *= Plugin.CrouchSpeedMultiplier.Value;
-        player.ladderMoveSpeed *= Plugin.LadderSpeedMultiplier.Value;
-        player.jumpVelInitial *= Plugin.JumpHeightMultiplier.Value;
+        player.walkMoveSpeed *= LevelSettings.Effective(Plugin.WalkSpeedMultiplier);
+        player.runMoveSpeed *= LevelSettings.Effective(Plugin.RunSpeedMultiplier);
+        player.airMoveSpeed *= LevelSettings.Effective(Plugin.AirSpeedMultiplier);
+        player.crouchMoveSpeed *= LevelSettings.Effective(Plugin.CrouchSpeedMultiplier);
+        player.ladderMoveSpeed *= LevelSettings.Effective(Plugin.LadderSpeedMultiplier);
+        player.jumpVelInitial *= LevelSettings.Effective(Plugin.JumpHeightMultiplier);
 
         player.friendlyFireMulti *= Plugin.FriendlyFireMultiplier.Value;
 
-        player.battery = ScaleUp(player.battery, Plugin.BatteryCapacityMultiplier.Value);
-        player.smallBatteryConsumtionPerSec *= Plugin.SmallBatteryDrainMultiplier.Value;
-        player.mediumBatteryConsumtionPerSec *= Plugin.MediumBatteryDrainMultiplier.Value;
-        player.largeBatteryConsumtionPerSec *= Plugin.LargeBatteryDrainMultiplier.Value;
+        player.battery = ScaleUp(player.battery, LevelSettings.Effective(Plugin.BatteryCapacityMultiplier));
+        player.smallBatteryConsumtionPerSec *= LevelSettings.Effective(Plugin.SmallBatteryDrainMultiplier);
+        player.mediumBatteryConsumtionPerSec *= LevelSettings.Effective(Plugin.MediumBatteryDrainMultiplier);
+        player.largeBatteryConsumtionPerSec *= LevelSettings.Effective(Plugin.LargeBatteryDrainMultiplier);
 
         player.noAirDamageRel *= Plugin.NoAirDamageMultiplier.Value;
         player.noAirTimeToEmpty *= Plugin.NoAirDepletionTimeMultiplier.Value;
@@ -297,7 +309,7 @@ internal static class GameDataInit_Initialize_Patch
     // a second line of defense.
     private static void ApplyFogTweaks()
     {
-        if (!Plugin.DisableFog.Value) return;
+        if (!LevelSettings.Effective(Plugin.DisableFog)) return;
 
         foreach (var block in GameDataBlockBase<FogSettingsDataBlock>.GetAllBlocks())
         {
@@ -542,7 +554,7 @@ internal static class GameDataInit_Initialize_Patch
     }
 
     private static float MeleeMult(string archetypeName, string fieldKey) =>
-        Plugin.MeleeMultipliers.TryGetValue($"{archetypeName}.{fieldKey}", out var entry) ? entry.Value : 1f;
+        Plugin.MeleeMultipliers.TryGetValue($"{archetypeName}.{fieldKey}", out var entry) ? LevelSettings.Effective(entry) : 1f;
 
     // ArchetypeDataBlock covers ranged weapons and sentries alike. Core combat stats get the
     // type x individual treatment for every archetype this mod found a GearCategory owner for
@@ -573,42 +585,42 @@ internal static class GameDataInit_Initialize_Patch
                 block.DefaultReloadTime *= WeaponMult(block.persistentID, owner.Category, "DefaultReloadTime");
             }
 
-            block.CostOfBullet *= Plugin.WeaponCostOfBulletMultiplier.Value;
-            block.ShotDelay *= Plugin.WeaponShotDelayMultiplier.Value;
-            block.HipFireSpread *= Plugin.WeaponHipFireSpreadMultiplier.Value;
-            block.AimSpread *= Plugin.WeaponAimSpreadMultiplier.Value;
-            block.PiercingDamageCountLimit = ScaleUp(block.PiercingDamageCountLimit, Plugin.WeaponPiercingDamageCountLimitMultiplier.Value);
-            block.BurstDelay *= Plugin.WeaponBurstDelayMultiplier.Value;
-            block.BurstShotCount = ScaleUp(block.BurstShotCount, Plugin.WeaponBurstShotCountMultiplier.Value);
-            block.ShotgunBulletCount = ScaleUp(block.ShotgunBulletCount, Plugin.WeaponShotgunBulletCountMultiplier.Value);
-            block.ShotgunConeSize = ScaleDown(block.ShotgunConeSize, Plugin.WeaponShotgunConeSizeMultiplier.Value);
-            block.ShotgunBulletSpread = ScaleDown(block.ShotgunBulletSpread, Plugin.WeaponShotgunBulletSpreadMultiplier.Value);
-            block.SpecialChargetupTime *= Plugin.WeaponSpecialChargetupTimeMultiplier.Value;
-            block.SpecialCooldownTime *= Plugin.WeaponSpecialCooldownTimeMultiplier.Value;
-            block.SpecialSemiBurstCountTimeout *= Plugin.WeaponSpecialSemiBurstCountTimeoutMultiplier.Value;
-            block.EquipTransitionTime *= Plugin.WeaponEquipTransitionTimeMultiplier.Value;
-            block.AimTransitionTime *= Plugin.WeaponAimTransitionTimeMultiplier.Value;
-            block.ShellCasingSize *= Plugin.WeaponShellCasingSizeMultiplier.Value;
+            block.CostOfBullet *= LevelSettings.Effective(Plugin.WeaponCostOfBulletMultiplier);
+            block.ShotDelay *= LevelSettings.Effective(Plugin.WeaponShotDelayMultiplier);
+            block.HipFireSpread *= LevelSettings.Effective(Plugin.WeaponHipFireSpreadMultiplier);
+            block.AimSpread *= LevelSettings.Effective(Plugin.WeaponAimSpreadMultiplier);
+            block.PiercingDamageCountLimit = ScaleUp(block.PiercingDamageCountLimit, LevelSettings.Effective(Plugin.WeaponPiercingDamageCountLimitMultiplier));
+            block.BurstDelay *= LevelSettings.Effective(Plugin.WeaponBurstDelayMultiplier);
+            block.BurstShotCount = ScaleUp(block.BurstShotCount, LevelSettings.Effective(Plugin.WeaponBurstShotCountMultiplier));
+            block.ShotgunBulletCount = ScaleUp(block.ShotgunBulletCount, LevelSettings.Effective(Plugin.WeaponShotgunBulletCountMultiplier));
+            block.ShotgunConeSize = ScaleDown(block.ShotgunConeSize, LevelSettings.Effective(Plugin.WeaponShotgunConeSizeMultiplier));
+            block.ShotgunBulletSpread = ScaleDown(block.ShotgunBulletSpread, LevelSettings.Effective(Plugin.WeaponShotgunBulletSpreadMultiplier));
+            block.SpecialChargetupTime *= LevelSettings.Effective(Plugin.WeaponSpecialChargetupTimeMultiplier);
+            block.SpecialCooldownTime *= LevelSettings.Effective(Plugin.WeaponSpecialCooldownTimeMultiplier);
+            block.SpecialSemiBurstCountTimeout *= LevelSettings.Effective(Plugin.WeaponSpecialSemiBurstCountTimeoutMultiplier);
+            block.EquipTransitionTime *= LevelSettings.Effective(Plugin.WeaponEquipTransitionTimeMultiplier);
+            block.AimTransitionTime *= LevelSettings.Effective(Plugin.WeaponAimTransitionTimeMultiplier);
+            block.ShellCasingSize *= LevelSettings.Effective(Plugin.WeaponShellCasingSizeMultiplier);
 
-            block.Sentry_StartFireDelay *= Plugin.SentryStartFireDelayMultiplier.Value;
-            block.Sentry_RotationSpeed *= Plugin.SentryRotationSpeedMultiplier.Value;
-            block.Sentry_DetectionMaxRange *= Plugin.SentryDetectionMaxRangeMultiplier.Value;
-            block.Sentry_DetectionMaxAngle *= Plugin.SentryDetectionMaxAngleMultiplier.Value;
-            block.Sentry_LongRangeThreshold *= Plugin.SentryLongRangeThresholdMultiplier.Value;
-            block.Sentry_ShortRangeThreshold *= Plugin.SentryShortRangeThresholdMultiplier.Value;
-            block.Sentry_StartFireDelayTagMulti *= Plugin.SentryStartFireDelayTagMultiplier.Value;
-            block.Sentry_RotationSpeedTagMulti *= Plugin.SentryRotationSpeedTagMultiplier.Value;
-            block.Sentry_DamageTagMulti *= Plugin.SentryDamageTagMultiplier.Value;
-            block.Sentry_StaggerDamageTagMulti *= Plugin.SentryStaggerDamageTagMultiplier.Value;
-            block.Sentry_CostOfBulletTagMulti *= Plugin.SentryCostOfBulletTagMultiplier.Value;
-            block.Sentry_ShotDelayTagMulti *= Plugin.SentryShotDelayTagMultiplier.Value;
+            block.Sentry_StartFireDelay *= LevelSettings.Effective(Plugin.SentryStartFireDelayMultiplier);
+            block.Sentry_RotationSpeed *= LevelSettings.Effective(Plugin.SentryRotationSpeedMultiplier);
+            block.Sentry_DetectionMaxRange *= LevelSettings.Effective(Plugin.SentryDetectionMaxRangeMultiplier);
+            block.Sentry_DetectionMaxAngle *= LevelSettings.Effective(Plugin.SentryDetectionMaxAngleMultiplier);
+            block.Sentry_LongRangeThreshold *= LevelSettings.Effective(Plugin.SentryLongRangeThresholdMultiplier);
+            block.Sentry_ShortRangeThreshold *= LevelSettings.Effective(Plugin.SentryShortRangeThresholdMultiplier);
+            block.Sentry_StartFireDelayTagMulti *= LevelSettings.Effective(Plugin.SentryStartFireDelayTagMultiplier);
+            block.Sentry_RotationSpeedTagMulti *= LevelSettings.Effective(Plugin.SentryRotationSpeedTagMultiplier);
+            block.Sentry_DamageTagMulti *= LevelSettings.Effective(Plugin.SentryDamageTagMultiplier);
+            block.Sentry_StaggerDamageTagMulti *= LevelSettings.Effective(Plugin.SentryStaggerDamageTagMultiplier);
+            block.Sentry_CostOfBulletTagMulti *= LevelSettings.Effective(Plugin.SentryCostOfBulletTagMultiplier);
+            block.Sentry_ShotDelayTagMulti *= LevelSettings.Effective(Plugin.SentryShotDelayTagMultiplier);
         }
     }
 
     private static float WeaponMult(uint archetypeId, string category, string fieldKey)
     {
-        var typeMult = Plugin.WeaponTypeMultipliers.TryGetValue($"{category}.{fieldKey}", out var t) ? t.Value : 1f;
-        var individualMult = Plugin.WeaponIndividualMultipliers.TryGetValue($"{archetypeId}.{fieldKey}", out var i) ? i.Value : 1f;
+        var typeMult = Plugin.WeaponTypeMultipliers.TryGetValue($"{category}.{fieldKey}", out var t) ? LevelSettings.Effective(t) : 1f;
+        var individualMult = Plugin.WeaponIndividualMultipliers.TryGetValue($"{archetypeId}.{fieldKey}", out var i) ? LevelSettings.Effective(i) : 1f;
         return typeMult * individualMult;
     }
 
@@ -669,6 +681,44 @@ internal static class GameDataInit_EmptyDisabledLoot_Patch
         catch (Exception e)
         {
             Plugin.Logger.LogError($"GTFO.EZ failed to empty all-disabled loot tables: {e}");
+        }
+    }
+}
+
+// G.EZ-T144: the vanilla numbers of the datablocks the game-data buffs scale (the player block, every
+// weapon and melee archetype, fog settings), captured right before the buffs run so they can be put
+// back and applied again with the host's values. Every float, int, bool and stamina-cost property is
+// kept, found by reflection, so a field the buffs start touching later is covered without a list.
+internal sealed class DataBlockSnapshot
+{
+    private readonly List<Action> restore = new();
+
+    internal static DataBlockSnapshot Capture()
+    {
+        var s = new DataBlockSnapshot();
+        foreach (var block in GameDataBlockBase<PlayerDataBlock>.GetAllBlocks()) s.Keep(block);
+        foreach (var block in GameDataBlockBase<ArchetypeDataBlock>.GetAllBlocks()) s.Keep(block);
+        foreach (var block in GameDataBlockBase<MeleeArchetypeDataBlock>.GetAllBlocks()) s.Keep(block);
+        foreach (var block in GameDataBlockBase<FogSettingsDataBlock>.GetAllBlocks()) s.Keep(block);
+        Plugin.Logger.LogInfo($"GTFO.EZ: {s.restore.Count} vanilla game-data values kept for the host/client settings sync.");
+        return s;
+    }
+
+    internal void Restore()
+    {
+        foreach (var action in restore) action();
+    }
+
+    private void Keep(object? block)
+    {
+        if (block == null) return;
+        foreach (var property in block.GetType().GetProperties())
+        {
+            var type = property.PropertyType;
+            if (!(type == typeof(float) || type == typeof(int) || type == typeof(bool) || type == typeof(PlayerStamina.ActionCost))) continue;
+            if (!property.CanRead || !property.CanWrite || property.GetIndexParameters().Length != 0) continue;
+            var value = property.GetValue(block);
+            restore.Add(() => property.SetValue(block, value));
         }
     }
 }
